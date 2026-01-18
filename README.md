@@ -19,99 +19,98 @@ A powerful command-line video processing tool with parallel processing support.
 
 ## Features
 
-- **Split Video** - Extract segments with parallel processing
-- **Join Video** - Concatenate multiple videos
-- **Split & Join** - Split segments and merge into one file
-- **Compress Video** - Reduce file size with 3 quality levels
-- **Telegram Support** - Download from Telegram links
-- **Parallel Processing** - Multi-threaded operations based on queue setting
-- **Auto-Setup** - Downloads FFmpeg automatically
+| Feature               | Description                               |
+| --------------------- | ----------------------------------------- |
+| **Split Video**       | Extract segments with parallel processing |
+| **Join Video**        | Concatenate multiple videos               |
+| **Split & Join**      | Split segments and merge into one file    |
+| **Compress Video**    | 3 quality levels (low/medium/high)        |
+| **Telegram**          | Download from Telegram links              |
+| **Parallel Download** | Multi-threaded chunked downloads          |
+| **Folder Input**      | Process all videos in a folder            |
 
 ## Quick Start
 
 ### Download Release
 
-[Download latest release](../../releases) and run `video-tools.exe`
+[Download latest release](../../releases) → Extract → Run `video-tools.exe`
 
 ### From Source
 
 ```bash
 git clone https://github.com/yourusername/video-tools-cli.git
 cd video-tools-cli
-python -m venv venv
-venv\Scripts\activate
+python -m venv venv && venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
 
 ## Usage
 
-### Main Menu
+### Input Types
 
-```
-? Select action:
-> Split Video
-  Join Video
-  Split & Join Video    ← NEW
-  Compress Video
-  ─────────────
-  Settings
-  Exit
-```
+- **File**: `C:\Videos\video.mp4`
+- **Folder**: `C:\Videos\MyFolder` (all videos)
+- **Multiple**: Drag & drop multiple files
+- **URL**: Direct video links
+- **Telegram**: `https://t.me/...`
 
 ### Compression Levels
 
-| Level      | Quality  | Speed  | Use Case       |
-| ---------- | -------- | ------ | -------------- |
-| **Low**    | Lower    | Fast   | Quick previews |
-| **Medium** | Balanced | Normal | General use    |
-| **High**   | Best     | Slow   | Final output   |
+| Level  | CRF | Speed  | Quality  |
+| ------ | --- | ------ | -------- |
+| Low    | 28  | Fast   | Lower    |
+| Medium | 23  | Normal | Balanced |
+| High   | 18  | Slow   | Best     |
 
 ### Parallel Processing
 
-Set **Max Queue** in Settings to control parallel workers:
-
-- Queue = 2: Process 2 files simultaneously
-- Queue = 4: Process 4 files simultaneously
-
-### Input Types
-
-- **Single file**: `C:\Videos\video.mp4`
-- **Folder**: `C:\Videos\MyFolder` (processes all videos)
-- **Multiple files**: Drag & drop multiple files
-- **URL**: Direct video links
-- **Telegram**: `https://t.me/...` links
+| Setting                   | Description                                  |
+| ------------------------- | -------------------------------------------- |
+| `MAX_QUEUE`               | Parallel workers for processing (default: 2) |
+| `DOWNLOAD_MAX_CONNECTION` | Parallel download chunks (default: 4)        |
 
 ## Build
 
 ```bash
 pip install pyinstaller
 python build.py
+python build.py --package  # Create release ZIP
 ```
-
-### With Icon
-
-Place `icon.ico` in `assets/` folder before building.
-
-## Configuration
-
-Settings stored in `.env`:
-
-| Variable                  | Default  | Description                 |
-| ------------------------- | -------- | --------------------------- |
-| `MAX_QUEUE`               | `2`      | Parallel processing workers |
-| `DOWNLOAD_MAX_CONNECTION` | `4`      | Download connections        |
-| `COMPRESSION_LEVEL`       | `medium` | low/medium/high             |
-| `OVERRIDE_ENCODING`       | _(auto)_ | Force encoder               |
 
 ## Testing
 
 ```bash
-# Unit tests
-pytest tests/
 
-# Exe integration tests
-python tests/test_exe.py dist/video-tools.exe
+# Feature tests
+python tests/test_features.py
+
+# Options
+python tests/test_features.py --quick      # Skip long tests
+python tests/test_features.py --telegram   # Include Telegram tests
+```
+
+### Test Coverage
+
+- ✅ Split Video (1, 2, 3 segments)
+- ✅ Join Video (2, 3 files)
+- ✅ Split & Join workflow
+- ✅ Compress (low, medium, high)
+- ✅ Parallel download verification
+- ✅ Queue parallel processing
+- ✅ JSON batch input
+- ✅ Folder input detection
+- ✅ Multiple files parsing
+
+## Configuration
+
+`.env` file (auto-created):
+
+```env
+MAX_QUEUE=2
+DOWNLOAD_MAX_CONNECTION=4
+COMPRESSION_LEVEL=medium
+OVERRIDE_ENCODING=
 ```
 
 ## License

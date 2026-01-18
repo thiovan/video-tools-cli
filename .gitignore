@@ -49,3 +49,6 @@ Thumbs.db
 
 # Binary folder (binaries should be downloaded per-machine)
 bin/
+
+*.json
+!test_input.json
