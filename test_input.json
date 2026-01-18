@@ -1,0 +1,22 @@
+[
+  {
+    "input": "https://dummy-url.com/video1",
+    "output": "1234567",
+    "segments": [
+      {
+        "start": "00.00",
+        "end": "01.00"
+      }
+    ]
+  },
+  {
+    "input": "https://dummy-url.com/video2",
+    "output": "7654321",
+    "segments": [
+      {
+        "start": "00.16",
+        "end": "00.40"
+      }
+    ]
+  }
+]

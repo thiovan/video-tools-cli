@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Distribution / packaging
+dist/
+build/
+*.spec
+*.egg-info/
+
+# PyInstaller
+*.manifest
+*.exe
+
+# Environment files
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Output files
+*.mp4
+*.mkv
+*.avi
+*.webm
+
+# Temp files
+*.tmp
+*.log
+join_list.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Binary folder (binaries should be downloaded per-machine)
+bin/

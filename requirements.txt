@@ -1,0 +1,10 @@
+python-dotenv
+InquirerPy
+beautifulsoup4
+requests
+colorama
+termcolor
+tqdm
+pytest
+pytest-timeout
+pyinstaller
