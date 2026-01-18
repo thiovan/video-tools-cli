@@ -12,6 +12,7 @@ from core.tdl_handler import TDLHandler
 from core.downloader import Downloader
 from utils.helpers import time_str_to_seconds
 from utils.logger import log
+from utils.path_utils import normalize_path, expand_input, get_input_summary
 import colorama
 from termcolor import colored
 
@@ -19,7 +20,7 @@ from termcolor import colored
 colorama.init()
 
 # Application version
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 
 def print_banner():
@@ -46,12 +47,12 @@ load_config()
 class VideoCLI:
     def __init__(self):
         self.max_queue = int(get_env("MAX_QUEUE", 4))
-        self.download_max_connection = int(get_env("DOWNLOAD_MAX_CONNECTION", 16))
+        self.download_max_connection = int(get_env("DOWNLOAD_MAX_CONNECTION", 4))
         self.override_encoding = get_env("OVERRIDE_ENCODING", "")
         # Shared instances for better resource management
         self.ffmpeg = FFmpegHandler()
         self.tdl = TDLHandler()
-        # Inject shared ffmpeg handler into downloader with DOWNLOAD_MAX_CONNECTION
+        # Inject shared ffmpeg handler into downloader
         self.downloader = Downloader(ffmpeg_handler=self.ffmpeg, max_workers=self.download_max_connection)
 
     def run(self):
@@ -188,31 +189,37 @@ class VideoCLI:
         if action == "split":
             self.do_split_flow()
             return
-            
-        url_or_path = inquirer.text(message="Video URL / path:").execute()
         
-        local_path = self.handle_download_if_needed(url_or_path)
-        if not local_path:
+        # Get input with support for folder/multiple files
+        raw_input = inquirer.text(
+            message="Video path / folder / URL (supports drag & drop):"
+        ).execute()
+        
+        # Expand input to list of files
+        files = expand_input(raw_input)
+        
+        if not files:
+            log.error("No valid files found.")
             return
-
+        
         if action == "join":
-            self.do_join_flow(url_or_path)
+            self.do_join_flow_multi(files)
         elif action == "compress":
-            self.do_compress_flow(local_path)
+            self.do_compress_flow_multi(files)
 
     def do_split_flow(self):
-        """Unified split flow for both local files and URLs with concurrent processing."""
+        """Unified split flow for both local files and URLs."""
         # 1. Get input
-        url_or_path = inquirer.text(message="Video URL / path:").execute()
+        raw_input = inquirer.text(message="Video path / URL:").execute()
+        url_or_path = normalize_path(raw_input)
         
-        # 2. Get output base name (with smart default)
+        # 2. Get output base name
         default_output = Path(url_or_path).stem if not url_or_path.startswith("http") else "output"
         output_base = inquirer.text(
             message="Output name (empty = replace source):",
             default=""
         ).execute()
         
-        # Handle empty output - use source name
         if not output_base.strip():
             output_base = default_output
         
@@ -222,7 +229,7 @@ class VideoCLI:
             log.warning("No segments defined.")
             return
 
-        # 4. Process based on input type
+        # 4. Process
         is_url = url_or_path.startswith("http") or TDLHandler.is_telegram_link(url_or_path)
         
         if is_url:
@@ -244,7 +251,7 @@ class VideoCLI:
         return segments
 
     def _process_url_split(self, url, output_base, segments):
-        """Process split from URL with concurrent downloading."""
+        """Process split from URL."""
         is_tdl = TDLHandler.is_telegram_link(url)
         final_url = url
         
@@ -259,7 +266,6 @@ class VideoCLI:
             final_url = resolved
         
         try:
-            # Prepare segments for batch processing
             download_segments = []
             for i, (start, end) in enumerate(segments):
                 start_sec = time_str_to_seconds(start)
@@ -274,11 +280,9 @@ class VideoCLI:
                 log.error("No valid segments to process.")
                 return
             
-            # Use parallel chunked download
-            log.info(f"Processing {len(download_segments)} segment(s) with {self.download_max_connection} parallel connections...")
+            log.info(f"Processing {len(download_segments)} segment(s)...")
             results = self.downloader.batch_download_segments(final_url, download_segments)
             
-            # Summary
             success_count = sum(1 for _, success in results if success)
             log.success(f"Completed: {success_count}/{len(results)} segments")
             
@@ -304,6 +308,8 @@ class VideoCLI:
 
     def handle_download_if_needed(self, path):
         """Checks if input is URL, downloads if so."""
+        path = normalize_path(path)
+        
         if not (path.startswith("http") or TDLHandler.is_telegram_link(path)):
             return path
         
@@ -326,7 +332,6 @@ class VideoCLI:
             finally:
                 self.tdl.stop_serve()
         else:
-            # Standard URL
             output_name = "downloaded_video.mp4"
             if self.downloader.smart_download(path, output_name):
                 return output_name
@@ -334,46 +339,49 @@ class VideoCLI:
                 log.error("Download failed.")
                 return None
 
-    def do_join_flow(self, first_input):
-        """Join multiple videos into one."""
+    def do_join_flow_multi(self, files: list):
+        """Join multiple videos into one (supports folder/multi-file input)."""
         inputs = []
         
-        # 1. Add first video
-        local_path = self.handle_download_if_needed(first_input)
-        if local_path:
-            inputs.append(local_path)
-        else:
-            log.error("First video is invalid.")
-            return
+        # Process provided files
+        for f in files:
+            local_path = self.handle_download_if_needed(f)
+            if local_path:
+                inputs.append(local_path)
         
-        # 2. Always ask for second video (required for join)
-        second_input = inquirer.text(message="Second video URL / path:").execute()
-        local_path = self.handle_download_if_needed(second_input)
-        if local_path:
-            inputs.append(local_path)
-        else:
-            log.error("Second video is invalid.")
-            return
+        # If only one file, ask for more
+        if len(inputs) < 2:
+            if len(inputs) == 1:
+                log.info(f"First video: {Path(inputs[0]).name}")
+            
+            # Ask for second video
+            second_input = inquirer.text(message="Second video path / URL:").execute()
+            second_path = self.handle_download_if_needed(normalize_path(second_input))
+            if second_path:
+                inputs.append(second_path)
+            
+            if len(inputs) < 2:
+                log.error("Need at least 2 videos to join.")
+                return
         
-        # 3. Ask for additional videos (3rd+)
+        # Ask for more if desired
         while True:
-            confirm = inquirer.confirm(message="Add another video?", default=False).execute()
+            confirm = inquirer.confirm(message=f"Add another video? (current: {len(inputs)})", default=False).execute()
             if not confirm:
                 break
             
-            additional_input = inquirer.text(message="Video URL / path:").execute()
-            local_path = self.handle_download_if_needed(additional_input)
+            additional_input = inquirer.text(message="Video path / URL:").execute()
+            local_path = self.handle_download_if_needed(normalize_path(additional_input))
             if local_path:
                 inputs.append(local_path)
 
-        # 4. Get output filename
+        # Get output filename
         first_file_stem = Path(inputs[0]).stem
         output_name = inquirer.text(
             message="Output filename (empty = name_join.mp4):",
             default=""
         ).execute()
         
-        # Handle empty output - use first file + _join
         if not output_name.strip():
             output_name = f"{first_file_stem}_join.mp4"
         else:
@@ -381,6 +389,8 @@ class VideoCLI:
         
         log.section("JOIN VIDEO")
         log.detail("Input files", str(len(inputs)))
+        for i, f in enumerate(inputs):
+            log.detail(f"  [{i+1}]", Path(f).name)
         log.detail("Output", output_name)
         
         try:
@@ -389,33 +399,47 @@ class VideoCLI:
         except Exception as e:
             log.error(f"Failed to join videos", details=str(e))
 
-    def do_compress_flow(self, input_path):
-        """Compress video with auto-detected hardware acceleration."""
-        input_stem = Path(input_path).stem
-        
-        output_name = inquirer.text(
-            message="Output name (empty = replace source):",
-            default=""
-        ).execute()
-        
-        # Handle empty output - use same name as source (overwrite)
-        if not output_name.strip():
-            output_name = f"{input_stem}.mp4"
-        else:
-            output_name = ensure_output_extension(output_name)
-        
+    def do_compress_flow_multi(self, files: list):
+        """Compress multiple videos (supports folder/multi-file input)."""
         log.section("COMPRESS VIDEO")
-        log.detail("Input", input_path)
-        log.detail("Output", output_name)
+        log.detail("Files to process", str(len(files)))
         
-        try:
-            self.ffmpeg.compress_video(input_path, output_name)
-            log.success(f"Created {output_name}")
-        except Exception as e:
-            log.error(f"Compression failed", details=str(e))
+        for i, file_path in enumerate(files):
+            file_path = normalize_path(file_path)
+            
+            # Handle URL
+            local_path = self.handle_download_if_needed(file_path)
+            if not local_path:
+                continue
+            
+            input_stem = Path(local_path).stem
+            
+            # For batch, auto-generate output name
+            if len(files) > 1:
+                output_name = f"{input_stem}_compressed.mp4"
+                log.info(f"[{i+1}/{len(files)}] Processing: {Path(local_path).name}")
+            else:
+                output_name = inquirer.text(
+                    message="Output name (empty = replace source):",
+                    default=""
+                ).execute()
+                
+                if not output_name.strip():
+                    output_name = f"{input_stem}.mp4"
+                else:
+                    output_name = ensure_output_extension(output_name)
+            
+            try:
+                self.ffmpeg.compress_video(local_path, output_name)
+                log.success(f"Created {output_name}")
+            except Exception as e:
+                log.error(f"Failed to compress {Path(local_path).name}", details=str(e))
+        
+        if len(files) > 1:
+            log.success(f"Batch compression completed: {len(files)} files")
 
     def process_json_input(self, action):
-        """Process batch operations from JSON file with concurrent downloading."""
+        """Process batch operations from JSON file."""
         json_files = [f for f in os.listdir('.') if f.endswith('.json')]
         if not json_files:
             log.warning("No JSON files found in current directory.")
@@ -449,6 +473,9 @@ class VideoCLI:
         if not input_url or not output_base:
             log.warning("Skipping invalid item (missing input or output).")
             return
+        
+        # Normalize path
+        input_url = normalize_path(input_url)
             
         log.section(f"Processing: {output_base}")
         
@@ -466,7 +493,6 @@ class VideoCLI:
             final_url = resolved
         
         try:
-            # Prepare segments for batch processing
             download_segments = []
             for i, seg in enumerate(segments):
                 start = seg.get("start")
@@ -480,7 +506,7 @@ class VideoCLI:
                 download_segments.append((start_sec, end_sec, out_file))
             
             if download_segments:
-                log.info(f"Processing {len(download_segments)} segments concurrently...")
+                log.info(f"Processing {len(download_segments)} segments...")
                 results = self.downloader.batch_download_segments(final_url, download_segments)
                 success_count = sum(1 for _, success in results if success)
                 log.success(f"Completed: {success_count}/{len(results)} segments")

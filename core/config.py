@@ -48,7 +48,7 @@ def ensure_config():
     if not ENV_PATH.exists():
         default_config = (
             "MAX_QUEUE=4\n"
-            "DOWNLOAD_MAX_CONNECTION=16\n"
+            "DOWNLOAD_MAX_CONNECTION=4\n"
             "OVERRIDE_ENCODING=\n"
         )
         try:
