@@ -8,6 +8,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# Fix encoding for Windows CI environments
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 # Project paths
 PROJECT_DIR = Path(__file__).parent
 DIST_DIR = PROJECT_DIR / "dist"
@@ -17,6 +21,7 @@ BIN_DIR = PROJECT_DIR / "bin"
 # Application info
 APP_NAME = "video-tools"
 MAIN_SCRIPT = "main.py"
+VERSION = "1.4.0"
 
 
 def clean_build():
@@ -81,20 +86,21 @@ def build_exe():
     if result.returncode == 0:
         exe_path = DIST_DIR / f"{APP_NAME}.exe"
         if exe_path.exists():
-            print(f"\n✓ Build successful!")
+            print("")
+            print("[OK] Build successful!")
             print(f"  Executable: {exe_path}")
             print(f"  Size: {exe_path.stat().st_size / (1024*1024):.1f} MB")
             
             # Copy bin folder to dist
             dist_bin = DIST_DIR / "bin"
             if BIN_DIR.exists():
-                print(f"  Copying bin folder...")
+                print("  Copying bin folder...")
                 shutil.copytree(BIN_DIR, dist_bin, dirs_exist_ok=True)
             
             print(f"\n  To run: {exe_path}")
             return True
     
-    print(f"\n✗ Build failed with code {result.returncode}")
+    print(f"\n[FAIL] Build failed with code {result.returncode}")
     return False
 
 
@@ -106,8 +112,7 @@ def create_release_package():
         print("Executable not found. Run build first.")
         return False
     
-    version = "1.3.0"  # TODO: Read from version file
-    zip_name = f"{APP_NAME}-v{version}-win64.zip"
+    zip_name = f"{APP_NAME}-v{VERSION}-win64.zip"
     zip_path = DIST_DIR / zip_name
     
     print(f"Creating release package: {zip_name}")
@@ -128,7 +133,7 @@ def create_release_package():
         if readme.exists():
             zf.write(readme, "README.md")
     
-    print(f"✓ Created: {zip_path}")
+    print(f"[OK] Created: {zip_path}")
     print(f"  Size: {zip_path.stat().st_size / (1024*1024):.1f} MB")
     return True
 
@@ -144,7 +149,7 @@ if __name__ == "__main__":
     
     if args.clean:
         clean_build()
-        print("✓ Cleaned build artifacts")
+        print("[OK] Cleaned build artifacts")
     else:
         if build_exe():
             if args.package:

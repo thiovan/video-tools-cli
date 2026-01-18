@@ -2,116 +2,81 @@
 
 A powerful command-line video processing tool built with Python, FFmpeg, and TDL (Telegram Downloader).
 
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Python](https://img.shields.io/badge/python-3.8+-green)
+![License](https://img.shields.io/badge/license-MIT-yellow)
+
 ## Features
 
-- **Split Video** - Extract segments from videos using time ranges (supports HH.MM format)
+- **Split Video** - Extract segments from videos using time ranges
 - **Join Video** - Concatenate multiple video files into one
-- **Compress Video** - Reduce video file size with auto-detected hardware acceleration
-- **Telegram Support** - Download and process videos directly from Telegram links
-- **Parallel Downloads** - Split large downloads into multiple concurrent connections
-- **Progress Tracking** - Real-time progress bar with elapsed time and ETA
-- **Colorful Logging** - Rich, informative console output with status indicators
+- **Compress Video** - Reduce file size with hardware acceleration (NVENC, QSV, AMF)
+- **Telegram Support** - Download videos directly from Telegram links
+- **Parallel Downloads** - Multi-threaded download for faster speeds
+- **Progress Tracking** - Real-time progress bar with ETA
+- **Auto-Setup** - Automatically downloads FFmpeg if missing
 
-## Installation
+## Quick Start
 
-### Prerequisites
+### Download Release
 
-1. **Python 3.8+**
-2. **FFmpeg** - Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-3. **TDL** (optional) - For Telegram support, download from [iyear/tdl](https://github.com/iyear/tdl)
+Download the latest release from [Releases](../../releases) and run `video-tools.exe`.
 
-### Setup
+### From Source
 
 ```bash
-# Clone or download the project
+# Clone repository
+git clone https://github.com/yourusername/video-tools-cli.git
 cd video-tools-cli
 
 # Create virtual environment
 python -m venv venv
-
-# Activate (Windows)
-venv\Scripts\activate
-
-# Activate (Linux/Mac)
-source venv/bin/activate
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
-```
 
-### Binary Configuration
-
-Place `ffmpeg.exe`, `ffprobe.exe`, and `tdl.exe` in the `bin/` folder, or set paths in `.env`:
-
-```env
-# .env file
-FFMPEG_PATH=C:/path/to/ffmpeg.exe
-FFPROBE_PATH=C:/path/to/ffprobe.exe
-TDL_PATH=C:/path/to/tdl.exe
-MAX_QUEUE=4
-DOWNLOAD_MAX_CONNECTION=16
-OVERRIDE_ENCODING=
+# Run
+python main.py
 ```
 
 ## Usage
 
-### Starting the Application
-
-```bash
-python main.py
-```
-
-### Menu Options
+### Main Menu
 
 ```
-       _     _             _              _
-      (_)   | |           | |            | |
- __   ___  __| | ___  ___  | |_ ___   ___| |___
- \ \ / / |/ _` |/ _ \/ _ \ | __/ _ \ / _ \ / __|
-  \ V /| | (_| |  __/ (_) || || (_) | (_) | \__ \
-   \_/ |_|\__,_|\___|\___/  \__\___/ \___/|_|___/
-
 ? Select action:
 > Split Video
   Join Video
   Compress Video
   ─────────────
-  Set Max Queue
+  Settings
   Exit
 ```
 
 ### Split Video
 
-Extract specific time ranges from a video:
+Extract time ranges from a video:
 
 ```
-? Video url / path: my_video.mp4
+? Video URL / path: video.mp4
 ? Output name: clip
-? Start Time (HH.MM): 00.05   # 5 minutes
-? End Time (HH.MM): 00.10     # 10 minutes
-? Add another segment? No
-
-✓ Created clip_1.mp4
+? Start Time (HH.MM): 00.05
+? End Time (HH.MM): 00.10
 ```
 
-**Time Format:**
-
-- `00.30` = 30 minutes
-- `01.20` = 1 hour 20 minutes
-- `120` = 120 seconds
+**Time Format:** `00.30` = 30 minutes, `01.20` = 1 hour 20 minutes
 
 ### Join Video
 
 Combine multiple videos:
 
 ```
-? Video url / path: video1.mp4
-? Add another video? Yes
-? Video url / path: video2.mp4
+? Video URL / path: video1.mp4
+? Second video URL / path: video2.mp4
 ? Add another video? No
 ? Output filename: combined.mp4
-
-✓ Created combined.mp4
 ```
 
 ### Compress Video
@@ -119,105 +84,67 @@ Combine multiple videos:
 Reduce file size with auto-detected hardware acceleration:
 
 ```
-? Video url / path: large_video.mp4
+? Video URL / path: large_video.mp4
 ? Output name: compressed.mp4
 
-● Encoder: hevc_nvenc (Hardware)
-● Compressing video (120.5s)...
-[████████████████░░░░░░░░░░░░░░] 54.2% | Elapsed: 00:12 | ETA: 00:10 | Speed: 5.2x
-
-✓ Created compressed.mp4
+→ Encoder: hevc_nvenc (Hardware)
+● Compressing video...
+[████████████████░░░░] 80% | Elapsed: 00:45 | ETA: 00:11
 ```
 
-**Supported Encoders (auto-detected):**
+### Settings
 
-- NVIDIA: `hevc_nvenc`, `h264_nvenc`
-- Intel: `hevc_qsv`, `h264_qsv`
-- AMD: `hevc_amf`, `h264_amf`
-- Fallback: `libx264` (CPU)
+Configure application settings:
 
-### Batch Processing (JSON)
+- **Max Queue** - Maximum items in processing queue
+- **Download Connections** - Parallel download connections (1-64)
+- **Override Encoding** - Force specific encoder or auto-detect
 
-Create a JSON file for batch operations:
+## Build Executable
 
-```json
-[
-  {
-    "input": "https://example.com/video.mp4",
-    "output": "output_video",
-    "segments": [
-      { "start": "00.05", "end": "00.10" },
-      { "start": "00.15", "end": "00.20" }
-    ]
-  }
-]
+```bash
+# Install PyInstaller
+pip install pyinstaller
+
+# Build
+python build.py
+
+# Build with release package
+python build.py --package
 ```
 
-### Telegram Links
-
-Supports direct Telegram video links:
-
-```
-? Video url / path: https://t.me/channel/12345
-● Resolving Telegram link...
-● Downloading from: http://localhost:8080/video.mp4
-✓ Downloaded: downloaded_video.mp4
-```
+Output: `dist/video-tools.exe`
 
 ## Configuration
 
-### Environment Variables
+Settings are stored in `.env`:
 
-| Variable                  | Description                              | Default     |
-| ------------------------- | ---------------------------------------- | ----------- |
-| `MAX_QUEUE`               | Maximum items in processing queue        | `4`         |
-| `DOWNLOAD_MAX_CONNECTION` | Parallel download connections            | `16`        |
-| `OVERRIDE_ENCODING`       | Force specific encoder (e.g., `libx264`) | Auto-detect |
-
-## Running Tests
-
-```bash
-# Run all tests
-python -m pytest tests/ -v
-
-# Run only unit tests (fast)
-python -m pytest tests/test_ffmpeg_handler.py -v
-
-# Run integration tests (requires FFmpeg)
-python -m pytest tests/test_integration.py -v
-
-# Skip integration tests
-SKIP_INTEGRATION_TESTS=true python -m pytest tests/ -v
+```env
+MAX_QUEUE=4
+DOWNLOAD_MAX_CONNECTION=16
+OVERRIDE_ENCODING=
 ```
 
 ## Project Structure
 
 ```
 video-tools-cli/
-├── main.py                 # CLI entry point
+├── main.py              # CLI entry point
+├── build.py             # PyInstaller build script
 ├── core/
-│   ├── config.py          # Configuration management
-│   ├── ffmpeg_handler.py  # FFmpeg operations
-│   ├── downloader.py      # Download manager
-│   └── tdl_handler.py     # Telegram downloader
+│   ├── config.py        # Configuration
+│   ├── ffmpeg_handler.py
+│   ├── downloader.py
+│   ├── tdl_handler.py
+│   └── binary_downloader.py
 ├── utils/
-│   ├── helpers.py         # Time conversion utilities
-│   └── logger.py          # Colored logging
+│   ├── helpers.py
+│   └── logger.py
 ├── tests/
-│   ├── test_ffmpeg_handler.py
-│   ├── test_downloader.py
-│   ├── test_cli.py
-│   └── test_integration.py
-├── bin/                   # Binary executables
-└── requirements.txt
+└── .github/workflows/
+    └── release.yml      # GitHub Actions
 ```
 
 ## License
 
 MIT License
-
-## Credits
-
-- Built with [FFmpeg](https://ffmpeg.org/)
-- Telegram support via [TDL](https://github.com/iyear/tdl)
-- CLI interface powered by [InquirerPy](https://github.com/kazhala/InquirerPy)

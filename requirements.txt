@@ -1,9 +1,12 @@
+# Core dependencies
 python-dotenv
 InquirerPy
 beautifulsoup4
 requests
 colorama
 termcolor
+
+# Development dependencies
 tqdm
 pytest
 pytest-timeout
