@@ -1,12 +1,17 @@
 import sys
 import os
 import json
+import ctypes
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 
-from core.config import ensure_config, load_config, get_env, ensure_output_extension, get_output_name, ENV_PATH
+from core.config import (
+    ensure_config, load_config, get_env, ensure_output_extension, 
+    get_output_path, ENV_PATH, COMPRESSION_LEVELS
+)
 from core.ffmpeg_handler import FFmpegHandler
 from core.tdl_handler import TDLHandler
 from core.downloader import Downloader
@@ -20,11 +25,18 @@ from termcolor import colored
 colorama.init()
 
 # Application version
-VERSION = "1.5.0"
+VERSION = "1.6.0"
+
+
+def set_console_title(title: str):
+    """Set console window title."""
+    if sys.platform == "win32":
+        ctypes.windll.kernel32.SetConsoleTitleW(title)
 
 
 def print_banner():
     os.system('cls' if os.name == 'nt' else 'clear')
+    set_console_title(f"Video Tools CLI v{VERSION}")
     banner = r"""
        _      _             _             _     
       (_)    | |           | |           | |    
@@ -46,24 +58,25 @@ load_config()
 
 class VideoCLI:
     def __init__(self):
-        self.max_queue = int(get_env("MAX_QUEUE", 4))
+        self.max_queue = int(get_env("MAX_QUEUE", 2))
         self.download_max_connection = int(get_env("DOWNLOAD_MAX_CONNECTION", 4))
         self.override_encoding = get_env("OVERRIDE_ENCODING", "")
-        # Shared instances for better resource management
+        self.compression_level = get_env("COMPRESSION_LEVEL", "medium")
+        # Shared instances
         self.ffmpeg = FFmpegHandler()
         self.tdl = TDLHandler()
-        # Inject shared ffmpeg handler into downloader
         self.downloader = Downloader(ffmpeg_handler=self.ffmpeg, max_workers=self.download_max_connection)
 
     def run(self):
         while True:
             print_banner()
-            print(f"Max Queue: {self.max_queue} | Connections: {self.download_max_connection}")
+            print(f"Queue: {self.max_queue} | Connections: {self.download_max_connection} | Compression: {self.compression_level}")
             action = inquirer.select(
                 message="Select action:",
                 choices=[
                     Choice(value="split", name="Split Video"),
                     Choice(value="join", name="Join Video"),
+                    Choice(value="split_join", name="Split & Join Video"),
                     Choice(value="compress", name="Compress Video"),
                     Separator(),
                     Choice(value="settings", name="Settings"),
@@ -76,18 +89,18 @@ class VideoCLI:
                 sys.exit(0)
             elif action == "settings":
                 self.show_settings()
-            elif action in ["split", "join", "compress"]:
+            elif action in ["split", "join", "split_join", "compress"]:
                 self.handle_action(action)
 
     def show_settings(self):
-        """Show settings menu for editing .env configuration."""
+        """Show settings menu for editing configuration."""
         while True:
             print_banner()
             log.section("SETTINGS")
             
-            # Display current values
-            log.detail("Max Queue", str(self.max_queue))
+            log.detail("Max Queue (parallel)", str(self.max_queue))
             log.detail("Download Connections", str(self.download_max_connection))
+            log.detail("Compression Level", self.compression_level)
             log.detail("Override Encoding", self.override_encoding or "(auto-detect)")
             
             setting = inquirer.select(
@@ -95,6 +108,7 @@ class VideoCLI:
                 choices=[
                     Choice(value="max_queue", name=f"Max Queue [{self.max_queue}]"),
                     Choice(value="connections", name=f"Download Connections [{self.download_max_connection}]"),
+                    Choice(value="compression", name=f"Compression Level [{self.compression_level}]"),
                     Choice(value="encoding", name=f"Override Encoding [{self.override_encoding or 'auto'}]"),
                     Separator(),
                     Choice(value="back", name="Back"),
@@ -105,10 +119,10 @@ class VideoCLI:
                 break
             elif setting == "max_queue":
                 val = inquirer.text(
-                    message="Enter Max Queue (1-100):",
+                    message="Enter Max Queue (1-16):",
                     default=str(self.max_queue)
                 ).execute()
-                if val.isdigit() and 1 <= int(val) <= 100:
+                if val.isdigit() and 1 <= int(val) <= 16:
                     self.max_queue = int(val)
                     self._save_env("MAX_QUEUE", val)
                     log.success(f"Max Queue set to {val}")
@@ -122,6 +136,19 @@ class VideoCLI:
                     self.downloader.max_workers = int(val)
                     self._save_env("DOWNLOAD_MAX_CONNECTION", val)
                     log.success(f"Download Connections set to {val}")
+            elif setting == "compression":
+                val = inquirer.select(
+                    message="Select compression level:",
+                    choices=[
+                        Choice(value="low", name="Low (fast, larger file)"),
+                        Choice(value="medium", name="Medium (balanced)"),
+                        Choice(value="high", name="High (slow, smaller file)"),
+                    ],
+                    default=self.compression_level
+                ).execute()
+                self.compression_level = val
+                self._save_env("COMPRESSION_LEVEL", val)
+                log.success(f"Compression set to {val}")
             elif setting == "encoding":
                 encoders = self.ffmpeg.detect_hw_encoders()
                 choices = [Choice(value="", name="Auto-detect (recommended)")]
@@ -143,7 +170,6 @@ class VideoCLI:
     def _save_env(self, key: str, value: str):
         """Save a setting to .env file."""
         try:
-            # Read current .env
             env_content = {}
             if ENV_PATH.exists():
                 with open(ENV_PATH, 'r', encoding='utf-8') as f:
@@ -153,10 +179,8 @@ class VideoCLI:
                             k, v = line.split('=', 1)
                             env_content[k] = v
             
-            # Update value
             env_content[key] = value
             
-            # Write back
             with open(ENV_PATH, 'w', encoding='utf-8') as f:
                 for k, v in env_content.items():
                     f.write(f"{k}={v}\n")
@@ -165,7 +189,7 @@ class VideoCLI:
 
     def handle_action(self, action):
         while True:
-            print(f"\nMax Queue: {self.max_queue} | Action: {action}")
+            print(f"\nQueue: {self.max_queue} | Action: {action}")
             source = inquirer.select(
                 message="Select source:",
                 choices=[
@@ -188,54 +212,149 @@ class VideoCLI:
         
         if action == "split":
             self.do_split_flow()
-            return
-        
-        # Get input with support for folder/multiple files
-        raw_input = inquirer.text(
-            message="Video path / folder / URL (supports drag & drop):"
-        ).execute()
-        
-        # Expand input to list of files
-        files = expand_input(raw_input)
-        
-        if not files:
-            log.error("No valid files found.")
-            return
-        
-        if action == "join":
-            self.do_join_flow_multi(files)
+        elif action == "split_join":
+            self.do_split_join_flow()
+        elif action == "join":
+            raw_input = inquirer.text(
+                message="Video path / folder / URL (supports drag & drop):"
+            ).execute()
+            files = expand_input(raw_input)
+            if files:
+                self.do_join_flow_multi(files)
         elif action == "compress":
-            self.do_compress_flow_multi(files)
+            raw_input = inquirer.text(
+                message="Video path / folder / URL (supports drag & drop):"
+            ).execute()
+            files = expand_input(raw_input)
+            if files:
+                self.do_compress_flow_parallel(files)
 
     def do_split_flow(self):
-        """Unified split flow for both local files and URLs."""
-        # 1. Get input
+        """Split video into segments."""
         raw_input = inquirer.text(message="Video path / URL:").execute()
         url_or_path = normalize_path(raw_input)
         
-        # 2. Get output base name
+        # Get source folder for output
+        source_folder = Path(url_or_path).parent if not url_or_path.startswith("http") else Path(".")
         default_output = Path(url_or_path).stem if not url_or_path.startswith("http") else "output"
+        
         output_base = inquirer.text(
-            message="Output name (empty = replace source):",
+            message="Output name (empty = source name):",
             default=""
         ).execute()
         
         if not output_base.strip():
             output_base = default_output
         
-        # 3. Collect segments
         segments = self._collect_segments()
         if not segments:
             log.warning("No segments defined.")
             return
 
-        # 4. Process
         is_url = url_or_path.startswith("http") or TDLHandler.is_telegram_link(url_or_path)
         
         if is_url:
-            self._process_url_split(url_or_path, output_base, segments)
+            self._process_url_split(url_or_path, output_base, segments, Path("."))
         else:
-            self._process_local_split(url_or_path, output_base, segments)
+            self._process_local_split_parallel(url_or_path, output_base, segments, source_folder)
+
+    def do_split_join_flow(self):
+        """Split multiple segments and join them into one video."""
+        raw_input = inquirer.text(message="Video path / URL:").execute()
+        url_or_path = normalize_path(raw_input)
+        
+        source_folder = Path(url_or_path).parent if not url_or_path.startswith("http") else Path(".")
+        default_output = Path(url_or_path).stem if not url_or_path.startswith("http") else "output"
+        
+        output_name = inquirer.text(
+            message="Final output name (empty = source_joined):",
+            default=""
+        ).execute()
+        
+        if not output_name.strip():
+            output_name = f"{default_output}_joined.mp4"
+        else:
+            output_name = ensure_output_extension(output_name)
+        
+        # Collect segments
+        segments = self._collect_segments()
+        if len(segments) < 1:
+            log.warning("Need at least 1 segment.")
+            return
+
+        log.section("SPLIT & JOIN")
+        log.detail("Segments", str(len(segments)))
+        log.detail("Output", output_name)
+        
+        is_url = url_or_path.startswith("http") or TDLHandler.is_telegram_link(url_or_path)
+        
+        # Create temp segments
+        temp_files = []
+        temp_base = f"_temp_segment_{os.getpid()}"
+        
+        try:
+            if is_url:
+                # Download segments
+                for i, (start, end) in enumerate(segments):
+                    temp_file = str(source_folder / f"{temp_base}_{i}.mp4")
+                    start_sec = time_str_to_seconds(start)
+                    end_sec = time_str_to_seconds(end)
+                    if end_sec <= start_sec:
+                        continue
+                    log.info(f"Downloading segment {i+1}/{len(segments)}...")
+                    try:
+                        self.ffmpeg.download_segment(url_or_path, start_sec, end_sec, temp_file)
+                        temp_files.append(temp_file)
+                    except Exception as e:
+                        log.error(f"Segment {i+1} failed", details=str(e))
+            else:
+                # Split local file in parallel
+                def split_segment(args):
+                    i, start, end = args
+                    temp_file = str(source_folder / f"{temp_base}_{i}.mp4")
+                    start_sec = time_str_to_seconds(start)
+                    end_sec = time_str_to_seconds(end)
+                    if end_sec <= start_sec:
+                        return None
+                    try:
+                        self.ffmpeg.split_video(url_or_path, start_sec, end_sec, temp_file)
+                        return (i, temp_file)
+                    except Exception as e:
+                        log.error(f"Segment {i+1} failed", details=str(e))
+                        return None
+                
+                segment_args = [(i, s, e) for i, (s, e) in enumerate(segments)]
+                
+                with ThreadPoolExecutor(max_workers=self.max_queue) as executor:
+                    futures = {executor.submit(split_segment, args): args[0] for args in segment_args}
+                    results = []
+                    for future in as_completed(futures):
+                        result = future.result()
+                        if result:
+                            results.append(result)
+                            log.step(len(results), len(segments), "Segment split complete")
+                    
+                    # Sort by index and extract files
+                    results.sort(key=lambda x: x[0])
+                    temp_files = [f for _, f in results]
+            
+            if len(temp_files) < 1:
+                log.error("No segments to join.")
+                return
+            
+            # Join segments
+            log.info(f"Joining {len(temp_files)} segments...")
+            final_output = str(source_folder / output_name)
+            self.ffmpeg.join_videos(temp_files, final_output)
+            log.success(f"Created {output_name}")
+            
+        finally:
+            # Cleanup temp files
+            for f in temp_files:
+                try:
+                    Path(f).unlink()
+                except:
+                    pass
 
     def _collect_segments(self):
         """Collect time segments from user input."""
@@ -250,7 +369,7 @@ class VideoCLI:
                 break
         return segments
 
-    def _process_url_split(self, url, output_base, segments):
+    def _process_url_split(self, url, output_base, segments, output_folder):
         """Process split from URL."""
         is_tdl = TDLHandler.is_telegram_link(url)
         final_url = url
@@ -273,7 +392,7 @@ class VideoCLI:
                 if end_sec <= start_sec:
                     log.warning(f"Invalid range {start}-{end}, skipping.")
                     continue
-                out_file = ensure_output_extension(f"{output_base}_{i+1}")
+                out_file = str(output_folder / ensure_output_extension(f"{output_base}_{i+1}"))
                 download_segments.append((start_sec, end_sec, out_file))
             
             if not download_segments:
@@ -290,21 +409,40 @@ class VideoCLI:
             if is_tdl:
                 self.tdl.stop_serve()
 
-    def _process_local_split(self, input_path, output_base, segments):
-        """Process split from local file."""
-        log.info("Processing splits from local file...")
-        for i, (start, end) in enumerate(segments):
+    def _process_local_split_parallel(self, input_path, output_base, segments, output_folder):
+        """Process split from local file with parallel processing."""
+        log.info(f"Processing {len(segments)} splits with {self.max_queue} parallel workers...")
+        
+        def split_task(args):
+            i, start, end = args
             start_sec = time_str_to_seconds(start)
             end_sec = time_str_to_seconds(end)
             if end_sec <= start_sec:
-                log.warning(f"Invalid range {start}-{end}, skipping.")
-                continue
-            out_file = ensure_output_extension(f"{output_base}_{i+1}")
+                return (i, False, f"Invalid range {start}-{end}")
+            out_file = str(output_folder / ensure_output_extension(f"{output_base}_{i+1}"))
             try:
                 self.ffmpeg.split_video(input_path, start_sec, end_sec, out_file)
-                log.success(f"Created {out_file}")
+                return (i, True, Path(out_file).name)
             except Exception as e:
-                log.error(f"Failed to create {out_file}", details=str(e))
+                return (i, False, str(e))
+        
+        segment_args = [(i, s, e) for i, (s, e) in enumerate(segments)]
+        
+        with ThreadPoolExecutor(max_workers=self.max_queue) as executor:
+            futures = {executor.submit(split_task, args): args[0] for args in segment_args}
+            completed = 0
+            success_count = 0
+            
+            for future in as_completed(futures):
+                completed += 1
+                idx, success, msg = future.result()
+                if success:
+                    success_count += 1
+                    log.success(f"[{completed}/{len(segments)}] Created {msg}")
+                else:
+                    log.error(f"[{completed}/{len(segments)}] Failed: {msg}")
+        
+        log.success(f"Completed: {success_count}/{len(segments)} segments")
 
     def handle_download_if_needed(self, path):
         """Checks if input is URL, downloads if so."""
@@ -340,21 +478,18 @@ class VideoCLI:
                 return None
 
     def do_join_flow_multi(self, files: list):
-        """Join multiple videos into one (supports folder/multi-file input)."""
+        """Join multiple videos into one."""
         inputs = []
         
-        # Process provided files
         for f in files:
             local_path = self.handle_download_if_needed(f)
             if local_path:
                 inputs.append(local_path)
         
-        # If only one file, ask for more
         if len(inputs) < 2:
             if len(inputs) == 1:
                 log.info(f"First video: {Path(inputs[0]).name}")
             
-            # Ask for second video
             second_input = inquirer.text(message="Second video path / URL:").execute()
             second_path = self.handle_download_if_needed(normalize_path(second_input))
             if second_path:
@@ -364,7 +499,6 @@ class VideoCLI:
                 log.error("Need at least 2 videos to join.")
                 return
         
-        # Ask for more if desired
         while True:
             confirm = inquirer.confirm(message=f"Add another video? (current: {len(inputs)})", default=False).execute()
             if not confirm:
@@ -375,68 +509,100 @@ class VideoCLI:
             if local_path:
                 inputs.append(local_path)
 
-        # Get output filename
-        first_file_stem = Path(inputs[0]).stem
+        first_file = Path(inputs[0])
+        source_folder = first_file.parent
+        
         output_name = inquirer.text(
             message="Output filename (empty = name_join.mp4):",
             default=""
         ).execute()
         
         if not output_name.strip():
-            output_name = f"{first_file_stem}_join.mp4"
+            output_name = f"{first_file.stem}_join.mp4"
         else:
             output_name = ensure_output_extension(output_name)
         
         log.section("JOIN VIDEO")
         log.detail("Input files", str(len(inputs)))
-        for i, f in enumerate(inputs):
-            log.detail(f"  [{i+1}]", Path(f).name)
         log.detail("Output", output_name)
         
+        final_output = str(source_folder / output_name)
+        
         try:
-            self.ffmpeg.join_videos(inputs, output_name)
+            self.ffmpeg.join_videos(inputs, final_output)
             log.success(f"Created {output_name}")
         except Exception as e:
             log.error(f"Failed to join videos", details=str(e))
 
-    def do_compress_flow_multi(self, files: list):
-        """Compress multiple videos (supports folder/multi-file input)."""
+    def do_compress_flow_parallel(self, files: list):
+        """Compress multiple videos with parallel processing."""
         log.section("COMPRESS VIDEO")
         log.detail("Files to process", str(len(files)))
+        log.detail("Parallel workers", str(self.max_queue))
+        log.detail("Compression level", self.compression_level)
         
-        for i, file_path in enumerate(files):
+        def compress_task(file_path):
             file_path = normalize_path(file_path)
-            
-            # Handle URL
             local_path = self.handle_download_if_needed(file_path)
             if not local_path:
-                continue
+                return (file_path, False, "Download failed")
             
-            input_stem = Path(local_path).stem
-            
-            # For batch, auto-generate output name
-            if len(files) > 1:
-                output_name = f"{input_stem}_compressed.mp4"
-                log.info(f"[{i+1}/{len(files)}] Processing: {Path(local_path).name}")
-            else:
-                output_name = inquirer.text(
-                    message="Output name (empty = replace source):",
-                    default=""
-                ).execute()
-                
-                if not output_name.strip():
-                    output_name = f"{input_stem}.mp4"
-                else:
-                    output_name = ensure_output_extension(output_name)
+            input_file = Path(local_path)
+            source_folder = input_file.parent
+            output_name = f"{input_file.stem}_compressed.mp4"
+            output_path = str(source_folder / output_name)
             
             try:
-                self.ffmpeg.compress_video(local_path, output_name)
+                self.ffmpeg.compress_video(local_path, output_path)
+                return (input_file.name, True, output_name)
+            except Exception as e:
+                return (input_file.name, False, str(e))
+        
+        # Single file - ask for output name
+        if len(files) == 1:
+            file_path = normalize_path(files[0])
+            local_path = self.handle_download_if_needed(file_path)
+            if not local_path:
+                return
+            
+            input_file = Path(local_path)
+            source_folder = input_file.parent
+            
+            output_name = inquirer.text(
+                message="Output name (empty = replace source):",
+                default=""
+            ).execute()
+            
+            if not output_name.strip():
+                output_name = f"{input_file.stem}.mp4"
+            else:
+                output_name = ensure_output_extension(output_name)
+            
+            output_path = str(source_folder / output_name)
+            
+            try:
+                self.ffmpeg.compress_video(local_path, output_path)
                 log.success(f"Created {output_name}")
             except Exception as e:
-                log.error(f"Failed to compress {Path(local_path).name}", details=str(e))
+                log.error(f"Compression failed", details=str(e))
+            return
         
-        if len(files) > 1:
-            log.success(f"Batch compression completed: {len(files)} files")
+        # Multiple files - process in parallel
+        with ThreadPoolExecutor(max_workers=self.max_queue) as executor:
+            futures = {executor.submit(compress_task, f): f for f in files}
+            completed = 0
+            success_count = 0
+            
+            for future in as_completed(futures):
+                completed += 1
+                name, success, msg = future.result()
+                if success:
+                    success_count += 1
+                    log.success(f"[{completed}/{len(files)}] Created {msg}")
+                else:
+                    log.error(f"[{completed}/{len(files)}] Failed: {name} - {msg}")
+        
+        log.success(f"Batch completed: {success_count}/{len(files)} files")
 
     def process_json_input(self, action):
         """Process batch operations from JSON file."""
@@ -474,7 +640,6 @@ class VideoCLI:
             log.warning("Skipping invalid item (missing input or output).")
             return
         
-        # Normalize path
         input_url = normalize_path(input_url)
             
         log.section(f"Processing: {output_base}")

@@ -28,6 +28,13 @@ BIN_DIR = APP_DIR / "bin"
 CACHE_DIR = APP_DIR / "cache"
 ENV_PATH = APP_DIR / ".env"
 
+# Compression presets (CRF values for x264/x265, lower = better quality, higher file size)
+COMPRESSION_LEVELS = {
+    "low": {"crf": 28, "preset": "fast", "description": "Low quality, small file"},
+    "medium": {"crf": 23, "preset": "medium", "description": "Balanced quality/size"},
+    "high": {"crf": 18, "preset": "slow", "description": "High quality, large file"}
+}
+
 
 def ensure_bin_dir():
     """Ensure bin directory exists."""
@@ -47,9 +54,10 @@ def ensure_config():
     """Ensure .env file exists with default values."""
     if not ENV_PATH.exists():
         default_config = (
-            "MAX_QUEUE=4\n"
+            "MAX_QUEUE=2\n"
             "DOWNLOAD_MAX_CONNECTION=4\n"
             "OVERRIDE_ENCODING=\n"
+            "COMPRESSION_LEVEL=medium\n"
         )
         try:
             with open(ENV_PATH, "w", encoding="utf-8") as f:
@@ -73,13 +81,9 @@ def get_binary_path(binary_name: str) -> str:
     Prioritizes:
     1. bin/ folder next to the application.
     2. System PATH.
-    
-    Returns the executable path or just the name if not found in bin/.
     """
-    # Ensure bin directory exists
     ensure_bin_dir()
     
-    # Check for .exe extension on Windows if not provided
     if sys.platform == "win32" and not binary_name.lower().endswith(".exe"):
         binary_name_with_ext = binary_name + ".exe"
     else:
@@ -99,7 +103,6 @@ def get_binary_path(binary_name: str) -> str:
         except Exception as e:
             print(f"Warning: Could not auto-download {binary_name}: {e}")
     
-    # Fallback to system path (return just the name so subprocess can find it)
     return binary_name_with_ext if sys.platform == "win32" else binary_name
 
 
@@ -115,17 +118,15 @@ def get_env(key: str, default=None):
     return os.getenv(key, default)
 
 
+def get_compression_settings(level: str = None) -> dict:
+    """Get compression settings for given level."""
+    if level is None:
+        level = get_env("COMPRESSION_LEVEL", "medium")
+    return COMPRESSION_LEVELS.get(level.lower(), COMPRESSION_LEVELS["medium"])
+
+
 def ensure_output_extension(filename: str, extension: str = ".mp4") -> str:
-    """
-    Ensure filename has the specified extension.
-    
-    Args:
-        filename: The filename to check
-        extension: Extension to add if missing (default: .mp4)
-    
-    Returns:
-        Filename with extension
-    """
+    """Ensure filename has the specified extension."""
     if not filename:
         return filename
     
@@ -135,28 +136,44 @@ def ensure_output_extension(filename: str, extension: str = ".mp4") -> str:
     return filename
 
 
-def get_output_name(input_path: str, output_name: str, suffix: str = "") -> str:
+def get_output_path(input_path: str, output_name: str, suffix: str = "") -> str:
     """
-    Get output filename, handling empty input.
+    Get output path in same folder as input file.
     
     Args:
         input_path: Original input file path
         output_name: User-provided output name (may be empty)
-        suffix: Suffix to add before extension (e.g., "_join", "_compressed")
+        suffix: Suffix to add before extension
     
     Returns:
-        Valid output filename with .mp4 extension
+        Full output path in source folder
     """
+    input_file = Path(input_path).resolve()
+    source_folder = input_file.parent
+    
     if output_name and output_name.strip():
         # User provided a name, ensure extension
+        filename = ensure_output_extension(output_name.strip())
+    else:
+        # Empty output - derive from input
+        stem = input_file.stem
+        if suffix:
+            filename = f"{stem}{suffix}.mp4"
+        else:
+            filename = f"{stem}.mp4"
+    
+    return str(source_folder / filename)
+
+
+def get_output_name(input_path: str, output_name: str, suffix: str = "") -> str:
+    """Legacy function - get just the filename."""
+    if output_name and output_name.strip():
         return ensure_output_extension(output_name.strip())
     
-    # Empty output - derive from input
     input_file = Path(input_path)
     stem = input_file.stem
     
     if suffix:
         return f"{stem}{suffix}.mp4"
     else:
-        # Replace original - use same name
         return f"{stem}.mp4"

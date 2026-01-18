@@ -8,7 +8,7 @@ import time
 import threading
 from pathlib import Path
 from typing import Optional, Callable, Tuple
-from .config import get_binary_path, get_env
+from .config import get_binary_path, get_env, get_compression_settings
 from utils.logger import log
 
 
@@ -317,6 +317,10 @@ class FFmpegHandler:
                     width = int(stream.get('width', 1920))
                     height = int(stream.get('height', 1080))
                     break
+        # Get compression settings
+        comp_settings = get_compression_settings()
+        crf = comp_settings["crf"]
+        preset = comp_settings["preset"]
         
         # Determine resize filter
         scale_filter = ""
@@ -340,23 +344,26 @@ class FFmpegHandler:
         elif "hevc_nvenc" in encoders:
             selected_encoder = "hevc_nvenc"
             is_hardware = True
-            cmd.extend(["-c:v", "hevc_nvenc", "-preset", "p4", "-cq", "28"])
+            # Map CRF to NVENC CQ (approximate)
+            nvenc_cq = min(51, max(0, crf + 5))
+            cmd.extend(["-c:v", "hevc_nvenc", "-preset", "p4", "-cq", str(nvenc_cq)])
         elif "h264_nvenc" in encoders:
             selected_encoder = "h264_nvenc"
             is_hardware = True
-            cmd.extend(["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "26"])
+            nvenc_cq = min(51, max(0, crf + 3))
+            cmd.extend(["-c:v", "h264_nvenc", "-preset", "p4", "-cq", str(nvenc_cq)])
         elif "hevc_qsv" in encoders:
             selected_encoder = "hevc_qsv"
             is_hardware = True
-            cmd.extend(["-c:v", "hevc_qsv", "-global_quality", "28"])
+            cmd.extend(["-c:v", "hevc_qsv", "-global_quality", str(crf + 5)])
         elif "h264_qsv" in encoders:
             selected_encoder = "h264_qsv"
             is_hardware = True
-            cmd.extend(["-c:v", "h264_qsv", "-global_quality", "26"])
+            cmd.extend(["-c:v", "h264_qsv", "-global_quality", str(crf + 3)])
         else:
             selected_encoder = "libx264"
             is_hardware = False
-            cmd.extend(["-c:v", "libx264", "-crf", "26", "-preset", "medium"])
+            cmd.extend(["-c:v", "libx264", "-crf", str(crf), "-preset", preset])
         
         # Log encoder info
         log.encoding(selected_encoder, is_hardware)

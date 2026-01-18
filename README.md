@@ -11,56 +11,36 @@
         Video Processing Made Easy
 ```
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Version](https://img.shields.io/badge/version-1.6.0-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
-A powerful command-line video processing tool built with Python, FFmpeg, and TDL (Telegram Downloader).
+A powerful command-line video processing tool with parallel processing support.
 
 ## Features
 
-- **Split Video** - Extract segments from videos using time ranges
-- **Join Video** - Concatenate multiple video files into one
-- **Compress Video** - Reduce file size with hardware acceleration (NVENC, QSV, AMF)
-- **Telegram Support** - Download videos directly from Telegram links
-- **Parallel Downloads** - Multi-threaded download for faster speeds
-- **Progress Tracking** - Real-time progress bar with ETA
-- **Auto-Setup** - Automatically downloads FFmpeg if missing
+- **Split Video** - Extract segments with parallel processing
+- **Join Video** - Concatenate multiple videos
+- **Split & Join** - Split segments and merge into one file
+- **Compress Video** - Reduce file size with 3 quality levels
+- **Telegram Support** - Download from Telegram links
+- **Parallel Processing** - Multi-threaded operations based on queue setting
+- **Auto-Setup** - Downloads FFmpeg automatically
 
 ## Quick Start
 
 ### Download Release
 
-Download the latest release from [Releases](../../releases):
-
-```
-video-tools-v1.4.0-win64.zip
-├── video-tools.exe
-├── bin/
-│   ├── ffmpeg.exe
-│   ├── ffprobe.exe
-│   └── tdl.exe
-└── README.md
-```
-
-Just extract and run `video-tools.exe`!
+[Download latest release](../../releases) and run `video-tools.exe`
 
 ### From Source
 
 ```bash
-# Clone repository
 git clone https://github.com/yourusername/video-tools-cli.git
 cd video-tools-cli
-
-# Create virtual environment
 python -m venv venv
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-
-# Install dependencies
+venv\Scripts\activate
 pip install -r requirements.txt
-
-# Run
 python main.py
 ```
 
@@ -72,78 +52,66 @@ python main.py
 ? Select action:
 > Split Video
   Join Video
+  Split & Join Video    ← NEW
   Compress Video
   ─────────────
   Settings
   Exit
 ```
 
-### Split Video
+### Compression Levels
 
-```
-? Video URL / path: video.mp4
-? Output name: clip
-? Start Time (HH.MM): 00.05   → 5 minutes
-? End Time (HH.MM): 00.10     → 10 minutes
-```
+| Level      | Quality  | Speed  | Use Case       |
+| ---------- | -------- | ------ | -------------- |
+| **Low**    | Lower    | Fast   | Quick previews |
+| **Medium** | Balanced | Normal | General use    |
+| **High**   | Best     | Slow   | Final output   |
 
-### Join Video
+### Parallel Processing
 
-```
-? Video URL / path: video1.mp4
-? Second video URL / path: video2.mp4
-? Add another video? No
-? Output filename: combined.mp4
-```
+Set **Max Queue** in Settings to control parallel workers:
 
-### Compress Video
+- Queue = 2: Process 2 files simultaneously
+- Queue = 4: Process 4 files simultaneously
 
-```
-? Video URL / path: large_video.mp4
-? Output name: compressed.mp4
+### Input Types
 
-→ Encoder: hevc_nvenc (Hardware)
-● Compressing video...
-[████████████████░░░░] 80% | Elapsed: 00:45 | ETA: 00:11
-```
+- **Single file**: `C:\Videos\video.mp4`
+- **Folder**: `C:\Videos\MyFolder` (processes all videos)
+- **Multiple files**: Drag & drop multiple files
+- **URL**: Direct video links
+- **Telegram**: `https://t.me/...` links
 
-## Build Executable
+## Build
 
 ```bash
 pip install pyinstaller
 python build.py
 ```
 
-Output: `dist/video-tools.exe` (~10MB)
+### With Icon
+
+Place `icon.ico` in `assets/` folder before building.
 
 ## Configuration
 
-Settings stored in `.env` (created automatically):
+Settings stored in `.env`:
 
-| Variable                  | Description          | Default  |
-| ------------------------- | -------------------- | -------- |
-| `MAX_QUEUE`               | Max items in queue   | `4`      |
-| `DOWNLOAD_MAX_CONNECTION` | Parallel connections | `16`     |
-| `OVERRIDE_ENCODING`       | Force encoder        | `(auto)` |
+| Variable                  | Default  | Description                 |
+| ------------------------- | -------- | --------------------------- |
+| `MAX_QUEUE`               | `2`      | Parallel processing workers |
+| `DOWNLOAD_MAX_CONNECTION` | `4`      | Download connections        |
+| `COMPRESSION_LEVEL`       | `medium` | low/medium/high             |
+| `OVERRIDE_ENCODING`       | _(auto)_ | Force encoder               |
 
-## Project Structure
+## Testing
 
-```
-video-tools-cli/
-├── video-tools.exe      # Built executable
-├── bin/                 # FFmpeg, TDL binaries
-├── cache/               # Temporary processing files
-├── .env                 # Configuration
-├── main.py
-├── build.py
-├── core/
-│   ├── config.py
-│   ├── ffmpeg_handler.py
-│   ├── downloader.py
-│   └── tdl_handler.py
-└── utils/
-    ├── helpers.py
-    └── logger.py
+```bash
+# Unit tests
+pytest tests/
+
+# Exe integration tests
+python tests/test_exe.py dist/video-tools.exe
 ```
 
 ## License

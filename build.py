@@ -17,11 +17,12 @@ PROJECT_DIR = Path(__file__).parent
 DIST_DIR = PROJECT_DIR / "dist"
 BUILD_DIR = PROJECT_DIR / "build"
 BIN_DIR = PROJECT_DIR / "bin"
+ASSETS_DIR = PROJECT_DIR / "assets"
 
 # Application info
 APP_NAME = "video-tools"
 MAIN_SCRIPT = "main.py"
-VERSION = "1.4.0"
+VERSION = "1.6.0"
 
 
 def clean_build():
@@ -31,7 +32,6 @@ def clean_build():
         if folder.exists():
             shutil.rmtree(folder)
     
-    # Remove .spec file
     spec_file = PROJECT_DIR / f"{APP_NAME}.spec"
     if spec_file.exists():
         spec_file.unlink()
@@ -53,18 +53,18 @@ def build_exe():
     check_pyinstaller()
     clean_build()
     
-    print(f"Building {APP_NAME}.exe...")
+    print(f"Building {APP_NAME}.exe v{VERSION}...")
     
-    # PyInstaller arguments
+    # Build arguments
     args = [
         sys.executable, "-m", "PyInstaller",
         "--name", APP_NAME,
-        "--onefile",           # Single executable
-        "--console",           # Console application
-        "--noconfirm",         # Replace output without asking
-        "--clean",             # Clean cache
+        "--onefile",
+        "--console",
+        "--noconfirm",
+        "--clean",
         
-        # Hidden imports for runtime dependencies
+        # Hidden imports
         "--hidden-import", "colorama",
         "--hidden-import", "termcolor",
         "--hidden-import", "InquirerPy",
@@ -72,13 +72,19 @@ def build_exe():
         "--hidden-import", "requests",
         "--hidden-import", "bs4",
         "--hidden-import", "dotenv",
+        "--hidden-import", "tqdm",
         
         # Add data files
         "--add-data", f"requirements.txt{os.pathsep}.",
-        
-        # Main script
-        MAIN_SCRIPT
     ]
+    
+    # Add icon if exists
+    icon_path = ASSETS_DIR / "icon.ico"
+    if icon_path.exists():
+        args.extend(["--icon", str(icon_path)])
+        print(f"  Using icon: {icon_path}")
+    
+    args.append(MAIN_SCRIPT)
     
     # Run PyInstaller
     result = subprocess.run(args, cwd=PROJECT_DIR)
@@ -96,6 +102,10 @@ def build_exe():
             if BIN_DIR.exists():
                 print("  Copying bin folder...")
                 shutil.copytree(BIN_DIR, dist_bin, dirs_exist_ok=True)
+            
+            # Create cache folder
+            cache_dir = DIST_DIR / "cache"
+            cache_dir.mkdir(exist_ok=True)
             
             print(f"\n  To run: {exe_path}")
             return True
@@ -118,17 +128,14 @@ def create_release_package():
     print(f"Creating release package: {zip_name}")
     
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add executable
         exe_path = DIST_DIR / f"{APP_NAME}.exe"
         zf.write(exe_path, f"{APP_NAME}.exe")
         
-        # Add bin folder contents
         dist_bin = DIST_DIR / "bin"
         if dist_bin.exists():
             for file in dist_bin.iterdir():
                 zf.write(file, f"bin/{file.name}")
         
-        # Add README
         readme = PROJECT_DIR / "README.md"
         if readme.exists():
             zf.write(readme, "README.md")
