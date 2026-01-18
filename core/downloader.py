@@ -1,14 +1,15 @@
 """
 Downloader with parallel chunked downloads and colored logging.
+Uses application cache folder for temporary files.
 """
 import subprocess
 import os
-import tempfile
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Tuple, Optional, TYPE_CHECKING
 from pathlib import Path
 from utils.logger import log
+from .config import CACHE_DIR
 
 if TYPE_CHECKING:
     from .ffmpeg_handler import FFmpegHandler
@@ -36,6 +37,12 @@ class Downloader:
     def _safe_path(self, path) -> str:
         """Convert to safe absolute path string."""
         return str(Path(path).resolve())
+
+    def _get_temp_dir(self) -> Path:
+        """Get temporary directory for video chunks in cache folder."""
+        temp_dir = CACHE_DIR / f"chunks_{os.getpid()}"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        return temp_dir
 
     def smart_download(self, url: str, output_name: str) -> bool:
         """
@@ -102,7 +109,7 @@ class Downloader:
 
     def _merge_chunks(self, chunk_files: List[str], output_path: str) -> bool:
         """Merge multiple chunks into one file using ffmpeg concat."""
-        list_file = Path(tempfile.gettempdir()) / f"concat_list_{os.getpid()}.txt"
+        list_file = CACHE_DIR / f"concat_list_{os.getpid()}.txt"
         try:
             with open(list_file, "w", encoding="utf-8") as f:
                 for chunk in chunk_files:
@@ -159,9 +166,8 @@ class Downloader:
         # Calculate chunk size
         chunk_duration = total_duration / self.max_workers
         
-        # Create temp directory for chunks
-        temp_dir = Path(tempfile.gettempdir()) / f"video_chunks_{os.getpid()}"
-        temp_dir.mkdir(exist_ok=True)
+        # Use application cache directory for temp files
+        temp_dir = self._get_temp_dir()
         
         try:
             # Prepare chunk tasks

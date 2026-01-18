@@ -1,15 +1,32 @@
 """
 Configuration management for Video Tools CLI.
+Handles PyInstaller frozen builds and development mode.
 """
 import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
+
+def get_app_dir() -> Path:
+    """
+    Get the application directory.
+    - For PyInstaller frozen builds: directory containing the .exe
+    - For development: project root directory
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle - use exe directory
+        return Path(sys.executable).parent
+    else:
+        # Running as script - use project root
+        return Path(__file__).resolve().parent.parent
+
+
 # Define base paths
-BASE_DIR = Path(__file__).resolve().parent.parent
-BIN_DIR = BASE_DIR / "bin"
-ENV_PATH = BASE_DIR / ".env"
+APP_DIR = get_app_dir()
+BIN_DIR = APP_DIR / "bin"
+CACHE_DIR = APP_DIR / "cache"
+ENV_PATH = APP_DIR / ".env"
 
 
 def ensure_bin_dir():
@@ -17,6 +34,13 @@ def ensure_bin_dir():
     if not BIN_DIR.exists():
         BIN_DIR.mkdir(parents=True, exist_ok=True)
         print(f"Created bin directory at {BIN_DIR}")
+
+
+def ensure_cache_dir():
+    """Ensure cache directory exists for temporary processing files."""
+    if not CACHE_DIR.exists():
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    return CACHE_DIR
 
 
 def ensure_config():
@@ -39,6 +63,7 @@ def load_config():
     """Load configuration from .env."""
     ensure_config()
     ensure_bin_dir()
+    ensure_cache_dir()
     load_dotenv(ENV_PATH)
 
 
@@ -46,7 +71,7 @@ def get_binary_path(binary_name: str) -> str:
     """
     Get the absolute path to a binary.
     Prioritizes:
-    1. bin/ folder in the project root.
+    1. bin/ folder next to the application.
     2. System PATH.
     
     Returns the executable path or just the name if not found in bin/.
@@ -76,6 +101,13 @@ def get_binary_path(binary_name: str) -> str:
     
     # Fallback to system path (return just the name so subprocess can find it)
     return binary_name_with_ext if sys.platform == "win32" else binary_name
+
+
+def get_temp_dir() -> Path:
+    """Get temporary directory for video processing chunks."""
+    temp_dir = CACHE_DIR / f"temp_{os.getpid()}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    return temp_dir
 
 
 def get_env(key: str, default=None):

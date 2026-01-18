@@ -1,10 +1,21 @@
 # Video Tools CLI
 
-A powerful command-line video processing tool built with Python, FFmpeg, and TDL (Telegram Downloader).
+```
+       _      _             _             _
+      (_)    | |           | |           | |
+ __   ___  __| | ___  ___  | |_ ___   ___| |___
+ \ \ / / |/ _` |/ _ \/ _ \ | __/ _ \ / _ \ / __|
+  \ V /| | (_| |  __/ (_) || || (_) | (_) | \__ \
+   \_/ |_|\__,_|\___|\___/  \__\___/ \___/|_|___/
+
+        Video Processing Made Easy
+```
 
 ![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
+
+A powerful command-line video processing tool built with Python, FFmpeg, and TDL (Telegram Downloader).
 
 ## Features
 
@@ -20,7 +31,19 @@ A powerful command-line video processing tool built with Python, FFmpeg, and TDL
 
 ### Download Release
 
-Download the latest release from [Releases](../../releases) and run `video-tools.exe`.
+Download the latest release from [Releases](../../releases):
+
+```
+video-tools-v1.4.0-win64.zip
+├── video-tools.exe
+├── bin/
+│   ├── ffmpeg.exe
+│   ├── ffprobe.exe
+│   └── tdl.exe
+└── README.md
+```
+
+Just extract and run `video-tools.exe`!
 
 ### From Source
 
@@ -57,20 +80,14 @@ python main.py
 
 ### Split Video
 
-Extract time ranges from a video:
-
 ```
 ? Video URL / path: video.mp4
 ? Output name: clip
-? Start Time (HH.MM): 00.05
-? End Time (HH.MM): 00.10
+? Start Time (HH.MM): 00.05   → 5 minutes
+? End Time (HH.MM): 00.10     → 10 minutes
 ```
 
-**Time Format:** `00.30` = 30 minutes, `01.20` = 1 hour 20 minutes
-
 ### Join Video
-
-Combine multiple videos:
 
 ```
 ? Video URL / path: video1.mp4
@@ -81,8 +98,6 @@ Combine multiple videos:
 
 ### Compress Video
 
-Reduce file size with auto-detected hardware acceleration:
-
 ```
 ? Video URL / path: large_video.mp4
 ? Output name: compressed.mp4
@@ -92,57 +107,43 @@ Reduce file size with auto-detected hardware acceleration:
 [████████████████░░░░] 80% | Elapsed: 00:45 | ETA: 00:11
 ```
 
-### Settings
-
-Configure application settings:
-
-- **Max Queue** - Maximum items in processing queue
-- **Download Connections** - Parallel download connections (1-64)
-- **Override Encoding** - Force specific encoder or auto-detect
-
 ## Build Executable
 
 ```bash
-# Install PyInstaller
 pip install pyinstaller
-
-# Build
 python build.py
-
-# Build with release package
-python build.py --package
 ```
 
-Output: `dist/video-tools.exe`
+Output: `dist/video-tools.exe` (~10MB)
 
 ## Configuration
 
-Settings are stored in `.env`:
+Settings stored in `.env` (created automatically):
 
-```env
-MAX_QUEUE=4
-DOWNLOAD_MAX_CONNECTION=16
-OVERRIDE_ENCODING=
-```
+| Variable                  | Description          | Default  |
+| ------------------------- | -------------------- | -------- |
+| `MAX_QUEUE`               | Max items in queue   | `4`      |
+| `DOWNLOAD_MAX_CONNECTION` | Parallel connections | `16`     |
+| `OVERRIDE_ENCODING`       | Force encoder        | `(auto)` |
 
 ## Project Structure
 
 ```
 video-tools-cli/
-├── main.py              # CLI entry point
-├── build.py             # PyInstaller build script
+├── video-tools.exe      # Built executable
+├── bin/                 # FFmpeg, TDL binaries
+├── cache/               # Temporary processing files
+├── .env                 # Configuration
+├── main.py
+├── build.py
 ├── core/
-│   ├── config.py        # Configuration
+│   ├── config.py
 │   ├── ffmpeg_handler.py
 │   ├── downloader.py
-│   ├── tdl_handler.py
-│   └── binary_downloader.py
-├── utils/
-│   ├── helpers.py
-│   └── logger.py
-├── tests/
-└── .github/workflows/
-    └── release.yml      # GitHub Actions
+│   └── tdl_handler.py
+└── utils/
+    ├── helpers.py
+    └── logger.py
 ```
 
 ## License
