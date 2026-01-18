@@ -307,17 +307,20 @@ class VideoCLI:
                 log.success("Telegram link resolved.")
             
             if is_url:
-                # Download segments from URL
+                # Download segments from URL using parallel chunked download
                 for i, (start, end) in enumerate(segments):
                     temp_file = str(source_folder / f"{temp_base}_{i}.mp4")
                     start_sec = time_str_to_seconds(start)
                     end_sec = time_str_to_seconds(end)
                     if end_sec <= start_sec:
                         continue
-                    log.info(f"Downloading segment {i+1}/{len(segments)}...")
+                    log.info(f"Downloading segment {i+1}/{len(segments)} ({self.download_max_connection} connections)...")
                     try:
-                        self.ffmpeg.download_segment(final_url, start_sec, end_sec, temp_file)
-                        temp_files.append(temp_file)
+                        # Use parallel chunked download
+                        if self.downloader.download_segment_parallel(final_url, start_sec, end_sec, temp_file):
+                            temp_files.append(temp_file)
+                        else:
+                            log.error(f"Segment {i+1} download failed")
                     except Exception as e:
                         log.error(f"Segment {i+1} failed", details=str(e))
             else:
