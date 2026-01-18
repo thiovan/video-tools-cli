@@ -79,7 +79,7 @@ def build_exe():
     ]
     
     # Add icon if exists
-    icon_path = ASSETS_DIR / "icon.ico"
+    icon_path = (ASSETS_DIR / "icon.ico").resolve()
     if icon_path.exists():
         args.extend(["--icon", str(icon_path)])
         print(f"  Using icon: {icon_path}")

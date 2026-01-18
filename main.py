@@ -263,8 +263,8 @@ class VideoCLI:
         raw_input = inquirer.text(message="Video path / URL:").execute()
         url_or_path = normalize_path(raw_input)
         
-        source_folder = Path(url_or_path).parent if not url_or_path.startswith("http") else Path(".")
-        default_output = Path(url_or_path).stem if not url_or_path.startswith("http") else "output"
+        source_folder = Path(url_or_path).parent if not url_or_path.startswith("http") and not TDLHandler.is_telegram_link(url_or_path) else Path(".")
+        default_output = Path(url_or_path).stem if not url_or_path.startswith("http") and not TDLHandler.is_telegram_link(url_or_path) else "output"
         
         output_name = inquirer.text(
             message="Final output name (empty = source_joined):",
@@ -287,14 +287,27 @@ class VideoCLI:
         log.detail("Output", output_name)
         
         is_url = url_or_path.startswith("http") or TDLHandler.is_telegram_link(url_or_path)
+        is_tdl = TDLHandler.is_telegram_link(url_or_path)
         
         # Create temp segments
         temp_files = []
         temp_base = f"_temp_segment_{os.getpid()}"
+        final_url = url_or_path
         
         try:
+            # Resolve Telegram link if needed
+            if is_tdl:
+                log.info("Resolving Telegram link...")
+                self.tdl.start_serve(url_or_path)
+                resolved = self.tdl.get_download_link()
+                if not resolved:
+                    log.error("Failed to resolve Telegram link.")
+                    return
+                final_url = resolved
+                log.success("Telegram link resolved.")
+            
             if is_url:
-                # Download segments
+                # Download segments from URL
                 for i, (start, end) in enumerate(segments):
                     temp_file = str(source_folder / f"{temp_base}_{i}.mp4")
                     start_sec = time_str_to_seconds(start)
@@ -303,7 +316,7 @@ class VideoCLI:
                         continue
                     log.info(f"Downloading segment {i+1}/{len(segments)}...")
                     try:
-                        self.ffmpeg.download_segment(url_or_path, start_sec, end_sec, temp_file)
+                        self.ffmpeg.download_segment(final_url, start_sec, end_sec, temp_file)
                         temp_files.append(temp_file)
                     except Exception as e:
                         log.error(f"Segment {i+1} failed", details=str(e))
@@ -349,6 +362,9 @@ class VideoCLI:
             log.success(f"Created {output_name}")
             
         finally:
+            # Stop TDL if it was started
+            if is_tdl:
+                self.tdl.stop_serve()
             # Cleanup temp files
             for f in temp_files:
                 try:
@@ -553,7 +569,7 @@ class VideoCLI:
             output_path = str(source_folder / output_name)
             
             try:
-                self.ffmpeg.compress_video(local_path, output_path)
+                self.ffmpeg.compress_video(local_path, output_path, compression_level=self.compression_level)
                 return (input_file.name, True, output_name)
             except Exception as e:
                 return (input_file.name, False, str(e))
@@ -581,7 +597,7 @@ class VideoCLI:
             output_path = str(source_folder / output_name)
             
             try:
-                self.ffmpeg.compress_video(local_path, output_path)
+                self.ffmpeg.compress_video(local_path, output_path, compression_level=self.compression_level)
                 log.success(f"Created {output_name}")
             except Exception as e:
                 log.error(f"Compression failed", details=str(e))

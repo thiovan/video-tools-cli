@@ -291,10 +291,13 @@ class FFmpegHandler:
             return []
 
     def compress_video(self, input_path: str, output_path: str, 
-                       show_progress: bool = True):
+                       show_progress: bool = True, compression_level: str = None):
         """
         Compress video with auto-detected hardware acceleration.
         Shows encoding info and progress bar.
+        
+        Args:
+            compression_level: 'low', 'medium', or 'high'. If None, reads from config.
         """
         safe_input = self._safe_path(input_path)
         safe_output = self._safe_path(output_path)
@@ -318,9 +321,11 @@ class FFmpegHandler:
                     height = int(stream.get('height', 1080))
                     break
         # Get compression settings
-        comp_settings = get_compression_settings()
+        comp_settings = get_compression_settings(compression_level)
         crf = comp_settings["crf"]
         preset = comp_settings["preset"]
+        level_name = compression_level if compression_level else get_env("COMPRESSION_LEVEL", "medium")
+        log.detail("Compression Level", level_name.upper())
         
         # Determine resize filter
         scale_filter = ""
