@@ -5,6 +5,7 @@ import subprocess
 import json
 import re
 import time
+import uuid
 import threading
 from pathlib import Path
 from typing import Optional, Callable, Tuple
@@ -229,7 +230,7 @@ class FFmpegHandler:
     def join_videos(self, input_paths: list, output_path: str):
         """Join videos using concat demuxer."""
         safe_output = self._safe_path(output_path)
-        list_file = Path("join_list.txt")
+        list_file = Path(f"join_list_{uuid.uuid4().hex[:8]}.txt")
         
         try:
             # Create concat file with safe paths

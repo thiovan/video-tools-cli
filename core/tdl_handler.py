@@ -64,6 +64,35 @@ class TDLHandler:
             logging.warning("TDL server may not be fully ready, proceeding anyway...")
         
         return self.process
+        
+    def start_serve_batch(self, urls, port=None):
+        """
+        Start 'tdl dl --serve' for MULTIPLE urls. 
+        Returns the process object.
+        """
+        if port:
+            self.port = port
+            
+        self.stop_serve()
+        
+        cmd = [self.tdl_bin, "dl"]
+        for url in urls:
+            cmd.extend(["-u", self.clean_url(url)])
+        
+        cmd.extend(["--serve", "--port", str(self.port)])
+        
+        logging.info(f"Starting TDL serve batch: {' '.join(cmd)}")
+        self.process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        if not self._wait_for_server(timeout=10):
+            logging.warning("TDL batch server may not be fully ready, proceeding anyway...")
+        
+        return self.process
 
     def _wait_for_server(self, timeout=10, poll_interval=0.3):
         """Poll until server is ready or timeout."""
@@ -114,6 +143,39 @@ class TDLHandler:
                 time.sleep(1)  # Reduced from 2s to 1s
             
         return None
+
+    def get_download_links(self, port=None):
+        """Scrape the served page for ALL raw file links during a batch serve."""
+        check_port = port or self.port
+        base_url = f"http://localhost:{check_port}"
+        max_retries = 5
+        
+        for i in range(max_retries):
+            if self.process and self.process.poll() is not None:
+                logging.error("TDL process terminated unexpectedly.")
+                return []
+                
+            try:
+                response = requests.get(base_url, timeout=2)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    links = []
+                    for link in soup.find_all('a'):
+                        href = link.get('href')
+                        if href and href not in ['/', '#']:
+                            direct_url = f"{base_url}{href}" if href.startswith('/') else f"{base_url}/{href}"
+                            links.append(direct_url)
+                    
+                    if links:
+                        return links
+            except requests.RequestException:
+                pass
+            
+            if i < max_retries - 1:
+                logging.info(f"Waiting for TDL batch content... ({i+1}/{max_retries})")
+                time.sleep(1)
+            
+        return []
 
     def resolve_url(self, telegram_url):
         """

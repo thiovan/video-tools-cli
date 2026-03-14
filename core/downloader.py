@@ -5,6 +5,8 @@ Uses application cache folder for temporary files.
 import subprocess
 import os
 import shutil
+import tempfile
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Tuple, Optional, TYPE_CHECKING
 from pathlib import Path
@@ -109,7 +111,7 @@ class Downloader:
 
     def _merge_chunks(self, chunk_files: List[str], output_path: str) -> bool:
         """Merge multiple chunks into one file using ffmpeg concat."""
-        list_file = CACHE_DIR / f"concat_list_{os.getpid()}.txt"
+        list_file = CACHE_DIR / f"concat_list_{uuid.uuid4().hex[:8]}.txt"
         try:
             with open(list_file, "w", encoding="utf-8") as f:
                 for chunk in chunk_files:
@@ -155,7 +157,7 @@ class Downloader:
         
         # If duration is very short or max_workers is 1, do single download
         if total_duration < 30 or self.max_workers <= 1:
-            log.info(f"Short segment, single download: {output_name}")
+            log.info(f"Single download: {output_name}")
             try:
                 self.ffmpeg_handler.download_segment(url, start_time, end_time, output_name)
                 return True
@@ -166,8 +168,9 @@ class Downloader:
         # Calculate chunk size
         chunk_duration = total_duration / self.max_workers
         
-        # Use application cache directory for temp files
-        temp_dir = self._get_temp_dir()
+        # Use unique application cache directory for temp files
+        temp_dir = self._get_temp_dir() / f"chunks_{uuid.uuid4().hex[:8]}"
+        temp_dir.mkdir(parents=True, exist_ok=True)
         
         try:
             # Prepare chunk tasks
@@ -177,7 +180,7 @@ class Downloader:
                 chunk_file = str(temp_dir / f"chunk_{i:03d}.mp4")
                 chunks.append((chunk_start, chunk_duration, chunk_file))
             
-            log.info(f"Splitting into {self.max_workers} parallel downloads...")
+            log.info(f"Downloading {self.max_workers} chunks: {output_name}")
             
             # Download chunks in parallel
             chunk_files = []
@@ -194,7 +197,6 @@ class Downloader:
                     try:
                         if future.result():
                             chunk_files.append((idx, chunk_file))
-                            log.step(idx + 1, self.max_workers, f"Chunk completed")
                         else:
                             success = False
                             log.error(f"Chunk {idx + 1}/{self.max_workers} failed")
@@ -211,9 +213,7 @@ class Downloader:
             ordered_files = [f for _, f in chunk_files]
             
             # Merge chunks
-            log.info(f"Merging {len(ordered_files)} chunks...")
             if self._merge_chunks(ordered_files, safe_output):
-                log.success(f"Created: {output_name}")
                 return True
             else:
                 return False
@@ -238,7 +238,7 @@ class Downloader:
         results = []
         
         for i, (start, end, output) in enumerate(segments):
-            log.section(f"Segment {i+1}/{len(segments)}: {output}")
+            log.info(f"Segment {i+1}/{len(segments)}: {output}")
             success = self.download_segment_parallel(url, start, end, output)
             results.append((output, success))
         

@@ -78,7 +78,7 @@ class ColorLogger:
         pct = min(current / total, 1.0) * 100
         bar_width = 30
         filled = int(bar_width * current / total)
-        bar = colored("█" * filled, "cyan") + colored("░" * (bar_width - filled), "white", attrs=["dark"])
+        bar = colored("#" * filled, "cyan") + colored("-" * (bar_width - filled), "white", attrs=["dark"])
         
         # Calculate ETA
         if speed > 0:

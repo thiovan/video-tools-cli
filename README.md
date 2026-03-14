@@ -11,7 +11,7 @@
         Video Processing Made Easy
 ```
 
-![Version](https://img.shields.io/badge/version-1.6.0-blue)
+![Version](https://img.shields.io/badge/version-1.6.1-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
@@ -101,6 +101,8 @@ python tests/test_features.py --telegram   # Include Telegram tests
 - ✅ JSON batch input
 - ✅ Folder input detection
 - ✅ Multiple files parsing
+- ✅ JSON parallel `max_queue` concurrency safety tests (UUID WinError prevention)
+- ✅ Split & Join Single Segment naming logic
 
 ## Configuration
 

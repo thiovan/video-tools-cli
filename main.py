@@ -1,5 +1,6 @@
 import sys
 import os
+import shutil
 import json
 import ctypes
 from pathlib import Path
@@ -25,7 +26,7 @@ from termcolor import colored
 colorama.init()
 
 # Application version
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 
 
 def set_console_title(title: str):
@@ -272,7 +273,7 @@ class VideoCLI:
         ).execute()
         
         if not output_name.strip():
-            output_name = f"{default_output}_joined.mp4"
+            output_name = f"{default_output}_join.mp4"
         else:
             output_name = ensure_output_extension(output_name)
         
@@ -639,42 +640,102 @@ class VideoCLI:
             with open(queue_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 
-            log.info(f"Processing {len(data)} items from {queue_file}...")
-            
+            # Validate JSON structure completely
+            for i, item in enumerate(data):
+                if not isinstance(item, dict):
+                    log.error(f"Item #{i+1} is not a valid object. Aborting batch process.")
+                    return
+                
+                input_url = item.get("input", "")
+                output_base = item.get("output", "")
+                segments = item.get("segments", [])
+                
+                if not input_url or not isinstance(input_url, str) or not input_url.strip():
+                    log.error(f"Item #{i+1} missing or empty 'input'. Aborting batch process.")
+                    return
+                if not output_base or not isinstance(output_base, str) or not output_base.strip():
+                    log.error(f"Item #{i+1} missing or empty 'output'. Aborting batch process.")
+                    return
+                if not isinstance(segments, list):
+                    log.error(f"Item #{i+1} missing or invalid 'segments'. Aborting batch process.")
+                    return
+                
+            if not data:
+                log.error("No valid items found in JSON file.")
+                return
+                
+            # Pre-Resolve all Telegram links in batch
+            tdl_urls = []
             for item in data:
-                self._process_json_item(item)
+                input_url = item.get("input", "").strip()
+                if TDLHandler.is_telegram_link(input_url):
+                    # Maintain order for accurate mapping
+                    if input_url not in tdl_urls:
+                        tdl_urls.append(input_url)
+            
+            if tdl_urls:
+                log.info(f"Pre-resolving {len(tdl_urls)} Telegram link(s)...")
+                try:
+                    self.tdl.start_serve_batch(tdl_urls)
+                    direct_links = self.tdl.get_download_links()
+                    
+                    if not direct_links or len(direct_links) < len(tdl_urls):
+                        log.error("Failed to resolve all Telegram links from batch.")
+                        # Fallback or strict abort? We'll let `final_url` fail downstream if missing, 
+                        # but attempt to map whatever we got.
+                        
+                    # Map resolved localhost links back to data items.
+                    # TDL hosts them sequentially corresponding to the input URLs order.
+                    # Creating a mapping from original telegram URL to resolved direct URL.
+                    # Warning: TDL sorts served files by id, we map by searching original ids in direct urls if possible.
+                    # Safe mapping: Direct links contain the telegram message ID (e.g. 2006639235/38698).
+                    url_map = {}
+                    for d_link in direct_links:
+                        # Extract message ID from localhost link, e.g. http://localhost:8080/2006639235/38698
+                        # We compare it against the original t.me/channel/38698
+                        for t_url in tdl_urls:
+                            msg_id = t_url.split('/')[-1].split('?')[0] # get 38698
+                            if msg_id in d_link:
+                                url_map[t_url] = d_link
+                                break
+                                
+                    for item in data:
+                        input_url = item.get("input", "").strip()
+                        if TDLHandler.is_telegram_link(input_url):
+                            item["resolved_url"] = url_map.get(input_url, input_url) # fallback to original if map fails
+                except Exception as e:
+                    log.error("Error during TDL batch resolution.", details=str(e))
+                
+            log.info(f"Processing {len(data)} items from {queue_file} with {self.max_queue} workers...")
+            
+            try:
+                with ThreadPoolExecutor(max_workers=self.max_queue) as executor:
+                    futures = [executor.submit(self._process_json_item, item, action, idx, len(data)) for idx, item in enumerate(data)]
+                    for future in as_completed(futures):
+                        try:
+                            future.result()
+                        except Exception as exc:
+                            log.error("Item processing generated an exception", details=str(exc))
+            finally:
+                if tdl_urls:
+                    self.tdl.stop_serve()
                         
         except json.JSONDecodeError as e:
             log.error(f"Invalid JSON format", details=str(e))
         except Exception as e:
             log.error(f"Error processing JSON", details=str(e))
 
-    def _process_json_item(self, item):
+    def _process_json_item(self, item, action, idx, total_items):
         """Process a single item from JSON batch."""
-        input_url = item.get("input")
+        input_url = item.get("input", "").strip()
         output_base = item.get("output")
         segments = item.get("segments", [])
         
-        if not input_url or not output_base:
-            log.warning("Skipping invalid item (missing input or output).")
-            return
-        
         input_url = normalize_path(input_url)
             
-        log.section(f"Processing: {output_base}")
+        log.section(f"Processing {idx+1}/{total_items} queue: {output_base}")
         
-        final_url = input_url
-        is_tdl = TDLHandler.is_telegram_link(input_url)
-        
-        if is_tdl:
-            log.info("Resolving Telegram link...")
-            self.tdl.start_serve(input_url)
-            resolved = self.tdl.get_download_link()
-            if not resolved:
-                log.error("Failed to resolve TDL link.")
-                self.tdl.stop_serve()
-                return
-            final_url = resolved
+        final_url = item.get("resolved_url", input_url)
         
         try:
             download_segments = []
@@ -693,13 +754,31 @@ class VideoCLI:
                 log.info(f"Processing {len(download_segments)} segments...")
                 results = self.downloader.batch_download_segments(final_url, download_segments)
                 success_count = sum(1 for _, success in results if success)
-                log.success(f"Completed: {success_count}/{len(results)} segments")
+                log.success(f"Completed: {success_count}/{len(results)} segments for {output_base}")
+                
+                if action == 'split_join' and success_count >= 1:
+                    log.info(f"Joining {success_count} segment(s) into final video...")
+                    success_files = [f for f, success in results if success]
+                    final_output = str(Path(success_files[0]).parent / ensure_output_extension(f"{output_base}_join"))
+                    try:
+                        if len(success_files) == 1:
+                            shutil.move(success_files[0], final_output)
+                            log.success(f"Renamed single segment to {final_output}")
+                        else:
+                            self.ffmpeg.join_videos(success_files, final_output)
+                            log.success(f"Successfully joined videos to {final_output}")
+                    except Exception as e:
+                        log.error("Join operation failed", details=str(e))
+                    finally:
+                        for f in success_files:
+                            try:
+                                if Path(f).exists():
+                                    Path(f).unlink()
+                            except FileNotFoundError:
+                                pass
             
         except Exception as e:
             log.error(f"Error processing item", details=str(e))
-        finally:
-            if is_tdl:
-                self.tdl.stop_serve()
 
 
 if __name__ == "__main__":
