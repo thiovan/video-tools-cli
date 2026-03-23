@@ -30,6 +30,8 @@ class FFmpegHandler:
 
     def _safe_path(self, path) -> str:
         """Convert path to safe absolute path string for FFmpeg on Windows."""
+        if str(path).startswith("http"):
+            return str(path)
         return str(Path(path).resolve())
 
     def _run_ffmpeg(self, cmd: list, progress_callback: Optional[Callable] = None, 
@@ -150,9 +152,11 @@ class FFmpegHandler:
             "-v", "quiet",
             "-print_format", "json",
             "-show_format",
-            "-show_streams",
-            safe_path
+            "-show_streams"
         ]
+        if str(path).startswith("http"):
+            cmd.extend(["-allowed_extensions", "ALL"])
+        cmd.append(safe_path)
         try:
             result = subprocess.run(
                 cmd, 
@@ -191,13 +195,18 @@ class FFmpegHandler:
         cmd = [
             self.ffmpeg,
             "-hide_banner", "-v", "warning", "-stats",
-            "-y",
+            "-y"
+        ]
+        if str(input_path).startswith("http"):
+            cmd.extend(["-allowed_extensions", "ALL"])
+            
+        cmd.extend([
             "-i", safe_input,
             "-ss", str(start_time),
             "-to", str(end_time),
             "-c", "copy",
             safe_output
-        ]
+        ])
         
         log.info(f"Splitting: {start_time}s → {end_time}s")
         success, error = self._run_ffmpeg(cmd)
@@ -213,13 +222,18 @@ class FFmpegHandler:
         cmd = [
             self.ffmpeg,
             "-hide_banner", "-v", "warning", "-stats",
-            "-y",
+            "-y"
+        ]
+        if str(url).startswith("http"):
+            cmd.extend(["-allowed_extensions", "ALL"])
+            
+        cmd.extend([
             "-ss", str(start_time),
             "-i", url,
             "-t", str(duration),
             "-c", "copy",
             safe_output
-        ]
+        ])
         
         log.info(f"Downloading segment: {start_time:.1f}s - {end_time:.1f}s ({duration:.1f}s)")
         success, error = self._run_ffmpeg(cmd)

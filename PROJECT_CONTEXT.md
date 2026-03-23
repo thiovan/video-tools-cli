@@ -1,6 +1,6 @@
 # Video Tools CLI - Project Architecture Context
 
-**Version:** 1.6.1  
+**Version:** 1.6.2  
 **Purpose:** This document provides essential structural and historical context for AI developers working on this codebase. It documents why certain architectural decisions were made and highlights non-obvious rules that must be followed to prevent regressions.
 
 ---
@@ -38,6 +38,18 @@ When a user executes the `Split & Join Video` flow via CLI or JSON:
 The test suite validates the logic above. 
 - **Console Encoding:** Windows `charmap` codecs often crash when rendering complex Unicode characters (like progress bars) in constrained test pipes. The `utils/logger.py` uses fallback ASCII characters (`#`, `-`) in its progress method if it's running via test redirects.
 - **Split Testing Note:** `test_features.py` generates a dummy video using `testsrc` with the `ultrafast` preset to save time. This preset generates extremely sparse I-frames. Therefore, `-c copy` slices in `ffmpeg_handler.py` usually fail to copy valid streams from it. `test_split_join` explicitly overrides this by manually encoding (`libx264`) the testing segments to ensure the `join` multiplexer has valid data to piece together.
+
+## 5. Global Cache Management
+
+During complex or multithreaded operations, numerous chunk directories (e.g., `chunks_{UUID}`) and text lists are rapidly created in `CACHE_DIR`.
+**The Rule:** Temp folders shouldn't rely on individual function `finally` blocks for garbage collection, as hard crashes can leave orphaned folders behind.
+- **Implementation:** `main.py` explicitly captures the Python terminal lifecycle via a `try... finally` block encapsulating `cli.run()`. When the program finishes or is interrupted, `shutil.rmtree(CACHE_DIR, ignore_errors=True)` wipes the absolute cache folder cleanly, guaranteeing zero disk footprint between runs.
+
+## 6. HLS Stream Web Extraction (`.m3u8`)
+
+When extracting segment chunks from HLS playlists, CDNs often disguise `.ts` chunks with non-standard file extensions (like `.jpeg` or `.png`).
+**The Rule:** FFmpeg defaults to high security and rejects unrecognized video extensions in remote playlists unless explicitly overridden.
+- **Implementation:** All HTTP/HTTPS URL inputs processed by `downloader.py` and `ffmpeg_handler.py` are dynamically prefixed with the `["-allowed_extensions", "ALL"]` flag immediately before the `-i` parameter. This guarantees the CLI continues successfully downloading disguised web fragments without throwing `consider updating hls.c` compiler errors.
 
 ---
 *Maintainers updating this codebase should read and update this context file whenever core mechanics affecting state, threading, or outputs are modified.*

@@ -26,7 +26,7 @@ from termcolor import colored
 colorama.init()
 
 # Application version
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 
 
 def set_console_title(title: str):
@@ -787,4 +787,9 @@ if __name__ == "__main__":
         cli.run()
     except KeyboardInterrupt:
         print("\nAborted.")
+    finally:
+        from core.config import CACHE_DIR
+        import shutil
+        if CACHE_DIR.exists():
+            shutil.rmtree(CACHE_DIR, ignore_errors=True)
         sys.exit(0)

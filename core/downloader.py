@@ -41,8 +41,8 @@ class Downloader:
         return str(Path(path).resolve())
 
     def _get_temp_dir(self) -> Path:
-        """Get temporary directory for video chunks in cache folder."""
-        temp_dir = CACHE_DIR / f"chunks_{os.getpid()}"
+        """Get temporary directory for video chunks using unique UUID."""
+        temp_dir = CACHE_DIR / f"chunks_{uuid.uuid4().hex[:8]}"
         temp_dir.mkdir(parents=True, exist_ok=True)
         return temp_dir
 
@@ -57,11 +57,18 @@ class Downloader:
         cmd = [
             self.ffmpeg_handler.ffmpeg,
             "-hide_banner", "-v", "warning", "-stats",
-            "-y",
+            "-y"
+        ]
+        
+        # Permit custom extensions for web playlists (HLS/.m3u8)
+        if url.startswith("http"):
+            cmd.extend(["-allowed_extensions", "ALL"])
+            
+        cmd.extend([
             "-i", url,
             "-c", "copy",
             safe_output
-        ]
+        ])
         try:
             result = subprocess.run(
                 cmd, 
@@ -85,13 +92,19 @@ class Downloader:
         cmd = [
             self.ffmpeg_handler.ffmpeg,
             "-hide_banner", "-v", "warning",
-            "-y",
+            "-y"
+        ]
+        
+        if url.startswith("http"):
+            cmd.extend(["-allowed_extensions", "ALL"])
+            
+        cmd.extend([
             "-ss", str(start_time),
             "-i", url,
             "-t", str(duration),
             "-c", "copy",
             output_path
-        ]
+        ])
         try:
             result = subprocess.run(
                 cmd,
@@ -168,9 +181,8 @@ class Downloader:
         # Calculate chunk size
         chunk_duration = total_duration / self.max_workers
         
-        # Use unique application cache directory for temp files
-        temp_dir = self._get_temp_dir() / f"chunks_{uuid.uuid4().hex[:8]}"
-        temp_dir.mkdir(parents=True, exist_ok=True)
+        # Use unique application cache directory for temp files directly
+        temp_dir = self._get_temp_dir()
         
         try:
             # Prepare chunk tasks
