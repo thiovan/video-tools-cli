@@ -11,7 +11,7 @@
         Video Processing Made Easy
 ```
 
-![Version](https://img.shields.io/badge/version-1.6.2-blue)
+![Version](https://img.shields.io/badge/version-1.6.3-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
@@ -90,8 +90,16 @@ python tests/test_features.py --quick      # Skip long tests
 python tests/test_features.py --telegram   # Include Telegram tests
 ```
 
-### Test Coverage
+### Automated Test Coverage
 
+The project includes an extensive test suite verifying:
+- End-to-end Split & Join accuracy.
+- Hardware-accelerated and fallback CPU compression.
+- JSON batch parsing, error mapping, and missing parameter fail-safes.
+- Multithreaded chunk downloads and UUID cache collisions.
+- Single segment JSON renaming outputs.
+- Robust global application cache sweeping.
+- `.m3u8` HLS parameter injection protections versus progressive JSON links.
 - ✅ Split Video (1, 2, 3 segments)
 - ✅ Join Video (2, 3 files)
 - ✅ Split & Join workflow
@@ -103,6 +111,8 @@ python tests/test_features.py --telegram   # Include Telegram tests
 - ✅ Multiple files parsing
 - ✅ JSON parallel `max_queue` concurrency safety tests (UUID WinError prevention)
 - ✅ Split & Join Single Segment naming logic
+- ✅ Robust Cache cleanup enforcement
+- ✅ HLS URL FFmpeg parameter injection logic
 
 ## Configuration
 

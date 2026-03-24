@@ -61,7 +61,7 @@ class Downloader:
         ]
         
         # Permit custom extensions for web playlists (HLS/.m3u8)
-        if url.startswith("http"):
+        if ".m3u8" in url.lower():
             cmd.extend(["-allowed_extensions", "ALL"])
             
         cmd.extend([
@@ -95,7 +95,7 @@ class Downloader:
             "-y"
         ]
         
-        if url.startswith("http"):
+        if ".m3u8" in url.lower():
             cmd.extend(["-allowed_extensions", "ALL"])
             
         cmd.extend([

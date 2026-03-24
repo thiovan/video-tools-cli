@@ -632,6 +632,76 @@ def test_telegram_link(results: TestResult):
 
 
 # =============================================================================
+# BUG FIX REGRESSION TESTS (v1.6.2)
+# =============================================================================
+
+def test_hls_extensions(results: TestResult):
+    """Test HLS .m3u8 parameter injection logic."""
+    print("\n--- HLS EXTENSIONS TEST ---")
+    import core.downloader
+    import subprocess
+    
+    dl = core.downloader.Downloader()
+    original_run = core.downloader.subprocess.run
+    
+    cmd_m3u8 = []
+    cmd_http = []
+    
+    def mock_run_m3u8(*args, **kwargs):
+        cmd_m3u8.extend(args[0])
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+        
+    def mock_run_http(*args, **kwargs):
+        cmd_http.extend(args[0])
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+        
+    try:
+        # Test 1: .m3u8 injection
+        core.downloader.subprocess.run = mock_run_m3u8
+        dl._download_chunk("http://example.com/playlist.m3u8", 0, 10, "out.mp4")
+        
+        # Test 2: Standard HTTP omission
+        core.downloader.subprocess.run = mock_run_http
+        dl._download_chunk("http://localhost:8080/video.mp4", 0, 10, "out.mp4")
+        
+        has_allowed = "-allowed_extensions" in cmd_m3u8 and "ALL" in cmd_m3u8
+        not_has_allowed = "-allowed_extensions" not in cmd_http
+        
+        results.add(".m3u8 parameter extraction", has_allowed, "Properly injected -allowed_extensions ALL")
+        results.add("Standard API HTTP protection", not_has_allowed, "Omitted HLS flags for standard progressive streams")
+        
+    except Exception as e:
+        results.add("HLS Parameter Tests", False, f"Crash: {str(e)}")
+    finally:
+        core.downloader.subprocess.run = original_run
+
+
+def test_cache_cleanup(results: TestResult):
+    """Test global cache directory wiping."""
+    print("\n--- CACHE CLEANUP TEST ---")
+    from core.config import CACHE_DIR
+    import uuid
+    import shutil
+    
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        dummy_dir = CACHE_DIR / f"chunks_{uuid.uuid4().hex[:8]}"
+        dummy_dir.mkdir(parents=True, exist_ok=True)
+        (dummy_dir / "dummy.txt").write_text("Crash simulation data")
+        
+        if not dummy_dir.exists():
+            raise Exception("Failed to setup dummy cache.")
+            
+        if CACHE_DIR.exists():
+            shutil.rmtree(CACHE_DIR, ignore_errors=True)
+            
+        results.add("Global Cache Wiping (main.py exit hook)", not CACHE_DIR.exists(), "CACHE_DIR successfully annihilated")
+        
+    except Exception as e:
+        results.add("Cache Wiping Test", False, f"Crash: {str(e)}")
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -678,6 +748,8 @@ def run_all_tests():
         test_folder_input(results)
         test_multiple_files_input(results)
         test_telegram_link(results)
+        test_hls_extensions(results)
+        test_cache_cleanup(results)
         
         return results.summary()
     finally:

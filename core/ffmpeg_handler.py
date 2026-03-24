@@ -154,7 +154,7 @@ class FFmpegHandler:
             "-show_format",
             "-show_streams"
         ]
-        if str(path).startswith("http"):
+        if ".m3u8" in str(path).lower():
             cmd.extend(["-allowed_extensions", "ALL"])
         cmd.append(safe_path)
         try:
@@ -197,7 +197,7 @@ class FFmpegHandler:
             "-hide_banner", "-v", "warning", "-stats",
             "-y"
         ]
-        if str(input_path).startswith("http"):
+        if ".m3u8" in str(input_path).lower():
             cmd.extend(["-allowed_extensions", "ALL"])
             
         cmd.extend([
@@ -224,7 +224,7 @@ class FFmpegHandler:
             "-hide_banner", "-v", "warning", "-stats",
             "-y"
         ]
-        if str(url).startswith("http"):
+        if ".m3u8" in str(url).lower():
             cmd.extend(["-allowed_extensions", "ALL"])
             
         cmd.extend([
