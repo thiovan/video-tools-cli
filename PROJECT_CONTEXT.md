@@ -1,6 +1,6 @@
 # Video Tools CLI - Project Architecture Context
 
-**Version:** 1.6.3  
+**Version:** 1.6.4  
 **Purpose:** This document provides essential structural and historical context for AI developers working on this codebase. It documents why certain architectural decisions were made and highlights non-obvious rules that must be followed to prevent regressions.
 
 ---
@@ -47,14 +47,18 @@ During complex or multithreaded operations, numerous chunk directories (e.g., `c
 
 ## 6. HLS Stream Web Extraction (`.m3u8`)
 
-When extracting segment chunks from HLS playlists, CDNs often disguise `.ts` chunks with non-standard file extensions (like `.jpeg` or `.png`).
+When extracting segment chunks from HLS playlists, CDNs often disguise `.ts` chunks with non-standard file extensions (like `.jpeg` or `.png`), or lack extensions entirely (like Google Drive `...=d` IDs).
 **The Rule:** FFmpeg defaults to high security and rejects unrecognized video extensions in remote playlists unless explicitly overridden.
-- **Implementation:** All HTTP/HTTPS URL inputs processed by `downloader.py` and `ffmpeg_handler.py` are dynamically prefixed with the `["-allowed_extensions", "ALL"]` flag immediately before the `-i` parameter, **only if `.m3u8` is present in the String**. This guarantees the CLI successfully downloads disguised web fragments without breaking standard TDL Localhost stream inputs with `Option not found` failures.
+- **Implementation:** All HTTP/HTTPS URL inputs processed by `downloader.py` and `ffmpeg_handler.py` are dynamically prefixed with the `["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"]` flags immediately before the `-i` parameter, **only if `.m3u8` is present in the String**. This guarantees the CLI successfully downloads disguised web fragments without breaking standard TDL Localhost stream inputs with `Option not found` failures.
 
 ## 7. Bug Regression Testing
 When a severe logical framework error is exposed (such as the WinError 32 File Lock, Cache Orphans, or HLS Parameter Crashing), an automated regression test **must** be added to `test_features.py`. 
 - **Subprocess Mocking (`test_hls_extensions`):** For functions reliant on hard internet requests (like downloading an external `.m3u8`), we intercept `core.downloader.subprocess.run = mock_run` instead to analyze exactly what parameters Python is passing to FFmpeg without wasting CI runner bandwidth.
 - **Garbage Simulations (`test_cache_cleanup`):** Simulating hardware teardowns is handled by manually injecting dummy sub-folders, then manually firing `shutil.rmtree(CACHE_DIR)` to recreate the state `main.py` utilizes upon `sys.exit`.
+
+## 8. Secure Data Headers Parsing
+To bypass robust CDNs parsing explicit User Agents or requiring secure sessions, FFmpeg parameters `-referer`, `-user_agent`, and `-headers` have been thoroughly piped.
+**The flow:** `main.py::_process_json_item` natively checks for optional `referer`, `user_agent`, and `headers` tags, and injects them down all the way through the sequence of `Downloader` ThreadPoolWorkers to `_download_chunk()`, passing cleanly to subprocess logic.
 
 ---
 *Maintainers updating this codebase should read and update this context file whenever core mechanics affecting state, threading, or outputs are modified.*

@@ -155,7 +155,7 @@ class FFmpegHandler:
             "-show_streams"
         ]
         if ".m3u8" in str(path).lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
         cmd.append(safe_path)
         try:
             result = subprocess.run(
@@ -198,7 +198,7 @@ class FFmpegHandler:
             "-y"
         ]
         if ".m3u8" in str(input_path).lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
             
         cmd.extend([
             "-i", safe_input,
@@ -214,7 +214,7 @@ class FFmpegHandler:
         if not success:
             raise RuntimeError(f"Split failed: {error}")
 
-    def download_segment(self, url, start_time, end_time, output_path):
+    def download_segment(self, url, start_time, end_time, output_path, referer: Optional[str] = None, user_agent: Optional[str] = None, headers: Optional[str] = None):
         """Download a specific segment from URL using ffmpeg seeking."""
         safe_output = self._safe_path(output_path)
         duration = end_time - start_time
@@ -225,7 +225,14 @@ class FFmpegHandler:
             "-y"
         ]
         if ".m3u8" in str(url).lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
+            
+        if referer:
+            cmd.extend(["-referer", referer])
+        if user_agent:
+            cmd.extend(["-user_agent", user_agent])
+        if headers:
+            cmd.extend(["-headers", headers])
             
         cmd.extend([
             "-ss", str(start_time),

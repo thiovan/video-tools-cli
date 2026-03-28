@@ -11,7 +11,7 @@
         Video Processing Made Easy
 ```
 
-![Version](https://img.shields.io/badge/version-1.6.3-blue)
+![Version](https://img.shields.io/badge/version-1.6.4-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
@@ -54,8 +54,45 @@ python main.py
 - **Multiple**: Drag & drop multiple files
 - **URL**: Direct video links
 - **Telegram**: `https://t.me/...`
+- **JSON Batch Engine**: Supports massively parallel execution matrices.
 
-### Compression Levels
+#### Advanced JSON Configurations (Optional)
+
+When processing `.json` streams, the CLI natively injects security overrides:
+
+- `"referer"`: Safely bypass referer-locked CDNs.
+- `"user_agent"`: Hijack default FFmpeg agents to emulate browsers.
+- `"headers"`: Inject multi-line specific headers (e.g. `Authorization`).
+
+**Example `test_input.json`:**
+
+```json
+[
+  {
+    "input": "https://dummy-url.com/video1",
+    "output": "test output 1",
+    "segments": [
+      {
+        "start": "00.00",
+        "end": "01.00"
+      }
+    ]
+  },
+  {
+    "input": "https://dummy-url.com/video2",
+    "referer": "https://dummy-url.com",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "headers": "Authorization: Bearer token123\r\nAccept-Language: en-US,en;q=0.9",
+    "output": "test output 2",
+    "segments": [
+      {
+        "start": "00.16",
+        "end": "00.40"
+      }
+    ]
+  }
+]
+```
 
 | Level  | CRF | Speed  | Quality  |
 | ------ | --- | ------ | -------- |
@@ -93,6 +130,7 @@ python tests/test_features.py --telegram   # Include Telegram tests
 ### Automated Test Coverage
 
 The project includes an extensive test suite verifying:
+
 - End-to-end Split & Join accuracy.
 - Hardware-accelerated and fallback CPU compression.
 - JSON batch parsing, error mapping, and missing parameter fail-safes.

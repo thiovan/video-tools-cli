@@ -664,10 +664,10 @@ def test_hls_extensions(results: TestResult):
         core.downloader.subprocess.run = mock_run_http
         dl._download_chunk("http://localhost:8080/video.mp4", 0, 10, "out.mp4")
         
-        has_allowed = "-allowed_extensions" in cmd_m3u8 and "ALL" in cmd_m3u8
-        not_has_allowed = "-allowed_extensions" not in cmd_http
+        has_allowed = "-allowed_segment_extensions" in cmd_m3u8 and "-extension_picky" in cmd_m3u8
+        not_has_allowed = "-extension_picky" not in cmd_http
         
-        results.add(".m3u8 parameter extraction", has_allowed, "Properly injected -allowed_extensions ALL")
+        results.add(".m3u8 parameter extraction", has_allowed, "Properly injected specific extension allowances")
         results.add("Standard API HTTP protection", not_has_allowed, "Omitted HLS flags for standard progressive streams")
         
     except Exception as e:

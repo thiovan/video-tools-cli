@@ -46,7 +46,7 @@ class Downloader:
         temp_dir.mkdir(parents=True, exist_ok=True)
         return temp_dir
 
-    def smart_download(self, url: str, output_name: str) -> bool:
+    def smart_download(self, url: str, output_name: str, referer: Optional[str] = None, user_agent: Optional[str] = None, headers: Optional[str] = None) -> bool:
         """
         Simple download using FFmpeg.
         For complex splitting logic, use ffmpeg_handler directly.
@@ -62,7 +62,14 @@ class Downloader:
         
         # Permit custom extensions for web playlists (HLS/.m3u8)
         if ".m3u8" in url.lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
+            
+        if referer:
+            cmd.extend(["-referer", referer])
+        if user_agent:
+            cmd.extend(["-user_agent", user_agent])
+        if headers:
+            cmd.extend(["-headers", headers])
             
         cmd.extend([
             "-i", url,
@@ -87,7 +94,7 @@ class Downloader:
             log.error(f"FFmpeg download failed: {e}")
             return False
 
-    def _download_chunk(self, url: str, start_time: float, duration: float, output_path: str) -> bool:
+    def _download_chunk(self, url: str, start_time: float, duration: float, output_path: str, referer: Optional[str] = None, user_agent: Optional[str] = None, headers: Optional[str] = None) -> bool:
         """Download a single chunk."""
         cmd = [
             self.ffmpeg_handler.ffmpeg,
@@ -96,7 +103,14 @@ class Downloader:
         ]
         
         if ".m3u8" in url.lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
+            
+        if referer:
+            cmd.extend(["-referer", referer])
+        if user_agent:
+            cmd.extend(["-user_agent", user_agent])
+        if headers:
+            cmd.extend(["-headers", headers])
             
         cmd.extend([
             "-ss", str(start_time),
@@ -161,7 +175,7 @@ class Downloader:
             if list_file.exists():
                 list_file.unlink()
 
-    def download_segment_parallel(self, url: str, start_time: float, end_time: float, output_name: str) -> bool:
+    def download_segment_parallel(self, url: str, start_time: float, end_time: float, output_name: str, referer: Optional[str] = None, user_agent: Optional[str] = None, headers: Optional[str] = None) -> bool:
         """
         Download a segment by splitting it into multiple chunks and downloading in parallel.
         """
@@ -172,7 +186,7 @@ class Downloader:
         if total_duration < 30 or self.max_workers <= 1:
             log.info(f"Single download: {output_name}")
             try:
-                self.ffmpeg_handler.download_segment(url, start_time, end_time, output_name)
+                self.ffmpeg_handler.download_segment(url, start_time, end_time, output_name, referer=referer, user_agent=user_agent, headers=headers)
                 return True
             except Exception as e:
                 log.error(f"Download failed: {e}")
@@ -201,7 +215,7 @@ class Downloader:
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 futures = {}
                 for i, (chunk_start, chunk_dur, chunk_file) in enumerate(chunks):
-                    future = executor.submit(self._download_chunk, url, chunk_start, chunk_dur, chunk_file)
+                    future = executor.submit(self._download_chunk, url, chunk_start, chunk_dur, chunk_file, referer, user_agent, headers)
                     futures[future] = (i, chunk_file)
                 
                 for future in as_completed(futures):
@@ -235,14 +249,17 @@ class Downloader:
             if temp_dir.exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-    def download_segment(self, url: str, start_time: float, end_time: float, output_name: str) -> bool:
+    def download_segment(self, url: str, start_time: float, end_time: float, output_name: str, referer: Optional[str] = None, user_agent: Optional[str] = None, headers: Optional[str] = None) -> bool:
         """Download a specific segment from URL using parallel chunked download."""
-        return self.download_segment_parallel(url, start_time, end_time, output_name)
+        return self.download_segment_parallel(url, start_time, end_time, output_name, referer=referer, user_agent=user_agent, headers=headers)
 
     def batch_download_segments(
         self, 
         url: str, 
-        segments: List[Tuple[float, float, str]]
+        segments: List[Tuple[float, float, str]],
+        referer: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        headers: Optional[str] = None
     ) -> List[Tuple[str, bool]]:
         """
         Download multiple segments sequentially (each segment uses parallel chunk download).
@@ -251,7 +268,7 @@ class Downloader:
         
         for i, (start, end, output) in enumerate(segments):
             log.info(f"Segment {i+1}/{len(segments)}: {output}")
-            success = self.download_segment_parallel(url, start, end, output)
+            success = self.download_segment_parallel(url, start, end, output, referer=referer, user_agent=user_agent, headers=headers)
             results.append((output, success))
         
         return results

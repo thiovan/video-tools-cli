@@ -26,7 +26,7 @@ from termcolor import colored
 colorama.init()
 
 # Application version
-VERSION = "1.6.3"
+VERSION = "1.6.4"
 
 
 def set_console_title(title: str):
@@ -728,6 +728,9 @@ class VideoCLI:
     def _process_json_item(self, item, action, idx, total_items):
         """Process a single item from JSON batch."""
         input_url = item.get("input", "").strip()
+        referer = item.get("referer", None)
+        user_agent = item.get("user_agent", None)
+        headers = item.get("headers", None)
         output_base = item.get("output")
         segments = item.get("segments", [])
         
@@ -752,7 +755,13 @@ class VideoCLI:
             
             if download_segments:
                 log.info(f"Processing {len(download_segments)} segments...")
-                results = self.downloader.batch_download_segments(final_url, download_segments)
+                results = self.downloader.batch_download_segments(
+                    final_url, 
+                    download_segments, 
+                    referer=referer,
+                    user_agent=user_agent,
+                    headers=headers
+                )
                 success_count = sum(1 for _, success in results if success)
                 log.success(f"Completed: {success_count}/{len(results)} segments for {output_base}")
                 
