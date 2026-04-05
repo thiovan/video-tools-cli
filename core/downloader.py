@@ -203,7 +203,7 @@ class Downloader:
             chunks = []
             for i in range(self.max_workers):
                 chunk_start = start_time + (i * chunk_duration)
-                chunk_file = str(temp_dir / f"chunk_{i:03d}.mp4")
+                chunk_file = str(temp_dir / f"chunk_{i:03d}.ts")
                 chunks.append((chunk_start, chunk_duration, chunk_file))
             
             log.info(f"Downloading {self.max_workers} chunks: {output_name}")

@@ -22,7 +22,7 @@ ASSETS_DIR = PROJECT_DIR / "assets"
 # Application info
 APP_NAME = "video-tools"
 MAIN_SCRIPT = "main.py"
-VERSION = "1.6.4"
+VERSION = "1.6.5"
 
 
 def clean_build():

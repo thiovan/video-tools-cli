@@ -1,6 +1,6 @@
 # Video Tools CLI - Project Architecture Context
 
-**Version:** 1.6.4  
+**Version:** 1.6.5  
 **Purpose:** This document provides essential structural and historical context for AI developers working on this codebase. It documents why certain architectural decisions were made and highlights non-obvious rules that must be followed to prevent regressions.
 
 ---
@@ -55,6 +55,7 @@ When extracting segment chunks from HLS playlists, CDNs often disguise `.ts` chu
 When a severe logical framework error is exposed (such as the WinError 32 File Lock, Cache Orphans, or HLS Parameter Crashing), an automated regression test **must** be added to `test_features.py`. 
 - **Subprocess Mocking (`test_hls_extensions`):** For functions reliant on hard internet requests (like downloading an external `.m3u8`), we intercept `core.downloader.subprocess.run = mock_run` instead to analyze exactly what parameters Python is passing to FFmpeg without wasting CI runner bandwidth.
 - **Garbage Simulations (`test_cache_cleanup`):** Simulating hardware teardowns is handled by manually injecting dummy sub-folders, then manually firing `shutil.rmtree(CACHE_DIR)` to recreate the state `main.py` utilizes upon `sys.exit`.
+- **Parallel Chunk Integrity (`.ts` wrapper):** Parallel chunks must **never** be downloaded directly as `.mp4`. Slicing HTTP `.mp4` instances over `-c copy` routinely corrupts `moov` sequences. Hence, `downloader.py` relies on `chunk.ts` proxies which merge via `concat` seamlessly back to `.mp4` container outputs.
 
 ## 8. Secure Data Headers Parsing
 To bypass robust CDNs parsing explicit User Agents or requiring secure sessions, FFmpeg parameters `-referer`, `-user_agent`, and `-headers` have been thoroughly piped.
