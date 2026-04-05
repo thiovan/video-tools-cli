@@ -1,6 +1,6 @@
 # Video Tools CLI
 
-```
+```text
        _      _             _             _
       (_)    | |           | |           | |
  __   ___  __| | ___  ___  | |_ ___   ___| |___
@@ -15,7 +15,25 @@
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
-A powerful command-line video processing tool with parallel processing support.
+A powerful command-line video processing tool with parallel processing support. 
+
+> **Important Dependencies:** This project relies on the following external binaries to function:
+> - **[FFmpeg](https://ffmpeg.org/)** for core video processing, splitting, joining, and compression.
+> - **[TDL (Telegram Downloader)](https://github.com/iyear/tdl)** for resolving and downloading videos directly from Telegram links.
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+  - [Input Types](#input-types)
+  - [Compression Levels](#compression-levels)
+  - [Parallel Processing](#parallel-processing)
+  - [Advanced JSON Configurations](#advanced-json-configurations-optional)
+- [Build](#build)
+- [Testing](#testing)
+- [Configuration](#configuration)
+- [License](#license)
 
 ## Features
 
@@ -25,7 +43,7 @@ A powerful command-line video processing tool with parallel processing support.
 | **Join Video**        | Concatenate multiple videos               |
 | **Split & Join**      | Split segments and merge into one file    |
 | **Compress Video**    | 3 quality levels (low/medium/high)        |
-| **Telegram**          | Download from Telegram links              |
+| **Telegram**          | Download from Telegram links via TDL      |
 | **Parallel Download** | Multi-threaded chunked downloads          |
 | **Folder Input**      | Process all videos in a folder            |
 
@@ -40,7 +58,8 @@ A powerful command-line video processing tool with parallel processing support.
 ```bash
 git clone https://github.com/yourusername/video-tools-cli.git
 cd video-tools-cli
-python -m venv venv && venv\Scripts\activate
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
@@ -56,7 +75,22 @@ python main.py
 - **Telegram**: `https://t.me/...`
 - **JSON Batch Engine**: Supports massively parallel execution matrices.
 
-#### Advanced JSON Configurations (Optional)
+### Compression Levels
+
+| Level  | CRF | Speed  | Quality  |
+| ------ | --- | ------ | -------- |
+| Low    | 28  | Fast   | Lower    |
+| Medium | 23  | Normal | Balanced |
+| High   | 18  | Slow   | Best     |
+
+### Parallel Processing
+
+| Setting                   | Description                                  |
+| ------------------------- | -------------------------------------------- |
+| `MAX_QUEUE`               | Parallel workers for processing (default: 2) |
+| `DOWNLOAD_MAX_CONNECTION` | Parallel download chunks (default: 4)        |
+
+### Advanced JSON Configurations (Optional)
 
 When processing `.json` streams, the CLI natively injects security overrides:
 
@@ -94,19 +128,6 @@ When processing `.json` streams, the CLI natively injects security overrides:
 ]
 ```
 
-| Level  | CRF | Speed  | Quality  |
-| ------ | --- | ------ | -------- |
-| Low    | 28  | Fast   | Lower    |
-| Medium | 23  | Normal | Balanced |
-| High   | 18  | Slow   | Best     |
-
-### Parallel Processing
-
-| Setting                   | Description                                  |
-| ------------------------- | -------------------------------------------- |
-| `MAX_QUEUE`               | Parallel workers for processing (default: 2) |
-| `DOWNLOAD_MAX_CONNECTION` | Parallel download chunks (default: 4)        |
-
 ## Build
 
 ```bash
@@ -118,7 +139,6 @@ python build.py --package  # Create release ZIP
 ## Testing
 
 ```bash
-
 # Feature tests
 python tests/test_features.py
 
@@ -131,26 +151,16 @@ python tests/test_features.py --telegram   # Include Telegram tests
 
 The project includes an extensive test suite verifying:
 
-- End-to-end Split & Join accuracy.
-- Hardware-accelerated and fallback CPU compression.
-- JSON batch parsing, error mapping, and missing parameter fail-safes.
-- Multithreaded chunk downloads and UUID cache collisions.
-- Single segment JSON renaming outputs.
-- Robust global application cache sweeping.
-- `.m3u8` HLS parameter injection protections versus progressive JSON links.
-- ✅ Split Video (1, 2, 3 segments)
-- ✅ Join Video (2, 3 files)
-- ✅ Split & Join workflow
-- ✅ Compress (low, medium, high)
-- ✅ Parallel download verification
-- ✅ Queue parallel processing
-- ✅ JSON batch input
-- ✅ Folder input detection
-- ✅ Multiple files parsing
-- ✅ JSON parallel `max_queue` concurrency safety tests (UUID WinError prevention)
-- ✅ Split & Join Single Segment naming logic
-- ✅ Robust Cache cleanup enforcement
-- ✅ HLS URL FFmpeg parameter injection logic
+- ✅ End-to-end Split & Join accuracy (1, 2, 3 segments).
+- ✅ Join Video (2, 3 files).
+- ✅ Hardware-accelerated and fallback CPU compression (low, medium, high).
+- ✅ JSON batch parsing, error mapping, and missing parameter fail-safes.
+- ✅ Multithreaded chunk downloads and parallel download verification.
+- ✅ JSON parallel `max_queue` concurrency safety tests (UUID WinError prevention).
+- ✅ Single segment JSON renaming outputs & Split & Join single segment logic.
+- ✅ Robust global application cache sweeping.
+- ✅ `.m3u8` HLS parameter injection logic & protections versus progressive JSON links.
+- ✅ Folder input detection & multiple files parsing.
 
 ## Configuration
 
