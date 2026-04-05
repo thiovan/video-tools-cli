@@ -6,8 +6,8 @@ trigger: always_on
 
 For every task:
 
-- Before starting, read PROJECT_CONTEXT.md
-- After completing any significant work, update PROJECT_CONTEXT.md with:
+- Before starting, read AGENTS.md
+- After completing any significant work, update AGENTS.md with:
   - Summary of changes
   - New decisions / architecture updates
   - Open issues / next steps
