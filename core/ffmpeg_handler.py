@@ -225,7 +225,7 @@ class FFmpegHandler:
             "-y"
         ]
         if ".m3u8" in str(url).lower():
-            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
+            cmd.extend(["-allowed_extensions", "ALL"])
             
         if referer:
             cmd.extend(["-referer", referer])
