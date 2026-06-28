@@ -1,6 +1,6 @@
 # Video Tools CLI - Project Architecture Context
 
-**Version:** 1.6.5  
+**Version:** 1.7.0  
 **Purpose:** This document provides essential structural and historical context for AI developers working on this codebase. It documents why certain architectural decisions were made and highlights non-obvious rules that must be followed to prevent regressions.
 
 ---
