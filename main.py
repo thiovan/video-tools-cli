@@ -2,6 +2,9 @@ import sys
 import os
 import shutil
 import json
+import logging
+import uuid
+import time
 import ctypes
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -748,8 +751,9 @@ class VideoCLI:
         ns_str = f" [{ns}]" if ns else ""
         
         input_url = normalize_path(input_url)
-            
-        log.section(f"Processing {idx+1}/{total_items} queue: {output_base}{ns_str}")
+        
+        start_time_item = time.time()
+        log.info(f"[{idx+1}/{total_items}] Start: {output_base}{ns_str}")
         
         final_url = item.get("resolved_url", input_url)
         
@@ -767,7 +771,6 @@ class VideoCLI:
                 download_segments.append((start_sec, end_sec, out_file))
             
             if download_segments:
-                log.info(f"Processing {len(download_segments)} segments...")
                 results = self.downloader.batch_download_segments(
                     final_url, 
                     download_segments, 
@@ -776,7 +779,8 @@ class VideoCLI:
                     headers=headers
                 )
                 success_count = sum(1 for _, success in results if success)
-                log.success(f"Completed: {success_count}/{len(results)} segments for {output_base}")
+                elapsed_item = time.time() - start_time_item
+                log.success(f"[{idx+1}/{total_items}] Done: {success_count}/{len(results)} segments for {output_base} (Elapsed: {log._format_time(elapsed_item)})")
                 
                 if action == 'split_join' and success_count >= 1:
                     log.info(f"Joining {success_count} segment(s) into final video...")
@@ -785,7 +789,6 @@ class VideoCLI:
                     try:
                         if len(success_files) == 1:
                             shutil.move(success_files[0], final_output)
-                            log.success(f"Renamed single segment to {final_output}")
                         else:
                             self.ffmpeg.join_videos(success_files, final_output)
                             log.success(f"Successfully joined videos to {final_output}")
@@ -812,6 +815,7 @@ if __name__ == "__main__":
     finally:
         from core.config import CACHE_DIR
         import shutil
+        import os
         if CACHE_DIR.exists():
             shutil.rmtree(CACHE_DIR, ignore_errors=True)
-        sys.exit(0)
+        os._exit(1)

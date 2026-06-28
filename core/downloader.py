@@ -187,7 +187,6 @@ class Downloader:
         
         # If duration is very short or max_workers is 1, do single download
         if total_duration < 30 or self.max_workers <= 1:
-            log.info(f"Single download: {output_name}")
             try:
                 self.ffmpeg_handler.download_segment(url, start_time, end_time, output_name, referer=referer, user_agent=user_agent, headers=headers)
                 return True
@@ -208,8 +207,6 @@ class Downloader:
                 chunk_start = start_time + (i * chunk_duration)
                 chunk_file = str(temp_dir / f"chunk_{i:03d}.ts")
                 chunks.append((chunk_start, chunk_duration, chunk_file))
-            
-            log.info(f"Downloading {self.max_workers} chunks: {output_name}")
             
             # Download chunks in parallel
             chunk_files = []
@@ -270,7 +267,6 @@ class Downloader:
         results = []
         
         for i, (start, end, output) in enumerate(segments):
-            log.info(f"Segment {i+1}/{len(segments)}: {output}")
             success = self.download_segment_parallel(url, start, end, output, referer=referer, user_agent=user_agent, headers=headers)
             results.append((output, success))
         

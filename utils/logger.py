@@ -26,6 +26,7 @@ class ColorLogger:
     
     def __init__(self, name: str = "VideoTools"):
         self.name = name
+        self._lock = threading.Lock()
         self._spinner_stop = threading.Event()
         self._spinner_thread: Optional[threading.Thread] = None
     
@@ -37,38 +38,43 @@ class ColorLogger:
     def info(self, message: str, **kwargs):
         """Log info message in cyan."""
         prefix = self._format_prefix("INFO", self.INFO, "cyan")
-        print(f"{prefix}{message}", **kwargs)
+        with self._lock:
+            print(f"{prefix}{message}", **kwargs)
     
     def success(self, message: str, **kwargs):
         """Log success message in green."""
         prefix = self._format_prefix("SUCCESS", self.SUCCESS, "green")
-        print(f"{prefix}{colored(message, 'green')}", **kwargs)
+        with self._lock:
+            print(f"{prefix}{colored(message, 'green')}", **kwargs)
     
     def error(self, message: str, details: Optional[str] = None, **kwargs):
         """Log error message in red with optional details."""
         prefix = self._format_prefix("ERROR", self.ERROR, "red")
-        print(f"{prefix}{colored(message, 'red')}", **kwargs)
-        if details:
-            # Print indented details
-            for line in details.strip().split('\n'):
-                print(f"         {colored(line, 'red', attrs=['dark'])}")
+        with self._lock:
+            print(f"{prefix}{colored(message, 'red')}", **kwargs)
+            if details:
+                for line in details.strip().split('\n'):
+                    print(f"         {colored(line, 'red', attrs=['dark'])}")
     
     def warning(self, message: str, **kwargs):
         """Log warning message in yellow."""
         prefix = self._format_prefix("WARNING", self.WARNING, "yellow")
-        print(f"{prefix}{colored(message, 'yellow')}", **kwargs)
+        with self._lock:
+            print(f"{prefix}{colored(message, 'yellow')}", **kwargs)
     
     def step(self, step_num: int, total: int, message: str, **kwargs):
         """Log numbered step."""
         step_str = colored(f"[{step_num}/{total}]", "magenta", attrs=["bold"])
-        print(f"         {step_str} {message}", **kwargs)
+        with self._lock:
+            print(f"         {step_str} {message}", **kwargs)
     
     def encoding(self, encoder: str, is_hardware: bool = False):
         """Log encoding information with highlighting."""
         prefix = self._format_prefix("INFO", self.ARROW, "cyan")
         enc_type = colored("Hardware", "green", attrs=["bold"]) if is_hardware else colored("Software", "yellow")
         enc_name = colored(encoder, "white", attrs=["bold"])
-        print(f"{prefix}Encoder: {enc_name} ({enc_type})")
+        with self._lock:
+            print(f"{prefix}Encoder: {enc_name} ({enc_type})")
     
     def progress(self, current: float, total: float, elapsed: float, speed: float = 0.0):
         """Display progress bar with time info."""
@@ -93,11 +99,13 @@ class ColorLogger:
         speed_str = f"{speed:.1f}x" if speed > 0 else "--"
         status = f"\r         {bar} {pct:5.1f}% | {colored('Elapsed:', attrs=['dark'])} {elapsed_str} | {colored('ETA:', attrs=['dark'])} {eta_str} | {colored('Speed:', attrs=['dark'])} {speed_str}"
         
-        print(status, end="", flush=True)
+        with self._lock:
+            print(status, end="", flush=True)
     
     def progress_done(self):
         """Clear progress line and print newline."""
-        print()  # New line after progress bar
+        with self._lock:
+            print()  # New line after progress bar
     
     def _format_time(self, seconds: float) -> str:
         """Format seconds to MM:SS or HH:MM:SS."""
@@ -118,7 +126,8 @@ class ColorLogger:
             idx = 0
             while not self._spinner_stop.is_set():
                 char = colored(chars[idx % len(chars)], "cyan")
-                print(f"\r         {char} {message}...", end="", flush=True)
+                with self._lock:
+                    print(f"\r         {char} {message}...", end="", flush=True)
                 idx += 1
                 time.sleep(0.1)
         
@@ -130,7 +139,8 @@ class ColorLogger:
         self._spinner_stop.set()
         if self._spinner_thread:
             self._spinner_thread.join(timeout=0.5)
-        print("\r" + " " * 60 + "\r", end="")  # Clear line
+        with self._lock:
+            print("\r" + " " * 60 + "\r", end="")  # Clear line
         if final_message:
             if success:
                 self.success(final_message)
@@ -139,13 +149,15 @@ class ColorLogger:
     
     def section(self, title: str):
         """Print section header."""
-        print()
-        print(colored(f"  ═══ {title} ═══", "white", attrs=["bold"]))
-        print()
+        with self._lock:
+            print()
+            print(colored(f"  ═══ {title} ═══", "white", attrs=["bold"]))
+            print()
     
     def detail(self, label: str, value: str):
         """Print labeled detail line."""
-        print(f"         {colored(label + ':', attrs=['dark'])} {value}")
+        with self._lock:
+            print(f"         {colored(label + ':', attrs=['dark'])} {value}")
 
 
 # Global logger instance
