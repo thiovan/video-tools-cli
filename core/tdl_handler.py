@@ -4,13 +4,15 @@ import requests
 import logging
 from bs4 import BeautifulSoup
 from .config import get_binary_path
+from utils.helpers import get_free_port
 
 class TDLHandler:
     """Handler for Telegram Download (TDL) operations with context manager support."""
     
-    def __init__(self, port=8080):
+    def __init__(self, port=None, namespace="default"):
         self.tdl_bin = get_binary_path("tdl")
-        self.port = port
+        self.port = port if port else get_free_port()
+        self.namespace = namespace
         self.process = None
         self._current_url = None
 
@@ -46,10 +48,14 @@ class TDLHandler:
         cmd = [
             self.tdl_bin,
             "dl",
+        ]
+        if self.namespace:
+            cmd.extend(["-n", self.namespace])
+        cmd.extend([
             "-u", clean_link,
             "--serve",
             "--port", str(self.port)
-        ]
+        ])
         
         logging.info(f"Starting TDL serve: {' '.join(cmd)}")
         self.process = subprocess.Popen(
@@ -76,6 +82,8 @@ class TDLHandler:
         self.stop_serve()
         
         cmd = [self.tdl_bin, "dl"]
+        if self.namespace:
+            cmd.extend(["-n", self.namespace])
         for url in urls:
             cmd.extend(["-u", self.clean_url(url)])
         

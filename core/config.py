@@ -58,6 +58,7 @@ def ensure_config():
             "DOWNLOAD_MAX_CONNECTION=4\n"
             "OVERRIDE_ENCODING=\n"
             "COMPRESSION_LEVEL=medium\n"
+            "TDL_SESSIONS=default\n"
         )
         try:
             with open(ENV_PATH, "w", encoding="utf-8") as f:

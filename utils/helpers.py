@@ -1,3 +1,11 @@
+import socket
+
+def get_free_port() -> int:
+    """Get a random free port from the OS."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
 def time_str_to_seconds(time_str: str) -> float:
     """
     Convert time string 'HH.MM' or 'HH:MM:SS' into total seconds.

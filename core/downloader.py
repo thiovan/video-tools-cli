@@ -99,7 +99,10 @@ class Downloader:
         cmd = [
             self.ffmpeg_handler.ffmpeg,
             "-hide_banner", "-v", "warning",
-            "-y"
+            "-y",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5"
         ]
         
         if ".m3u8" in url.lower():

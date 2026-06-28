@@ -72,3 +72,11 @@ To bypass robust CDNs parsing explicit User Agents or requiring secure sessions,
 ---
 
 > **Note to Maintainers:** Updating this codebase? Please read and update this context file whenever core mechanics affecting state, threading, or outputs are modified. Updates should include a markdown section noting the changes.
+
+## 9. TDL Multi-Session Batching (Added 2026-06-28)
+
+To avoid Telegram download speed limits during batch processing, the CLI now supports splitting resolution requests across multiple concurrent TDL sessions.
+
+- **The Flow:** Instead of processing all Telegram links through a single TDL server, `main.py::_process_json_input` reads `TDL_SESSIONS` from `.env`. It instantiates multiple `TDLHandler` processes dynamically on free open ports via `socket`. 
+- **Rule Update (Round-Robin):** Never use sequential chunking (e.g. `chunks[0:4]`) to distribute URLs among sessions. Because `ThreadPoolExecutor` processes the queue sequentially, chunking causes sequential workers to bombard a single session, triggering Telegram DC rate limits. Always use **Round-Robin** (`url[i % len(sessions)]`) to distribute load evenly across workers.
+- **Rule Update (Connection Drops):** FFmpeg HTTP streams from local TDL proxies drop frequently. Always include `-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5` flags when pulling chunks from TDL to survive connection resets.

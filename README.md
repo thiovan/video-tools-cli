@@ -44,6 +44,7 @@ A powerful command-line video processing tool with parallel processing support.
 | **Split & Join**      | Split segments and merge into one file    |
 | **Compress Video**    | 3 quality levels (low/medium/high)        |
 | **Telegram**          | Download from Telegram links via TDL      |
+| **Multi-Session**     | Distribute Telegram downloads across accounts |
 | **Parallel Download** | Multi-threaded chunked downloads          |
 | **Folder Input**      | Process all videos in a folder            |
 
@@ -85,10 +86,28 @@ python main.py
 
 ### Parallel Processing
 
-| Setting                   | Description                                  |
-| ------------------------- | -------------------------------------------- |
-| `MAX_QUEUE`               | Parallel workers for processing (default: 2) |
-| `DOWNLOAD_MAX_CONNECTION` | Parallel download chunks (default: 4)        |
+| Setting                   | Description                                         |
+| ------------------------- | --------------------------------------------------- |
+| `MAX_QUEUE`               | Parallel workers for processing (default: 2)        |
+| `DOWNLOAD_MAX_CONNECTION` | Parallel download chunks (default: 4)               |
+| `TDL_SESSIONS`            | Comma-separated TDL sessions for Telegram batch load balancing (e.g., `default,second_account`) |
+
+### Multi-Session TDL Batching
+
+To prevent Telegram from rate-limiting your downloads during heavy parallel processing, you can distribute the load across multiple Telegram accounts using TDL namespaces.
+
+1. **Login to a new session:**
+   Open your terminal and login using a new namespace:
+   ```bash
+   tdl login -n second_account
+   ```
+2. **Update your `.env`:**
+   Add the new session to the `TDL_SESSIONS` configuration:
+   ```env
+   TDL_SESSIONS=default,second_account
+   ```
+   
+The CLI will automatically use Round-Robin load balancing and dynamically assign free ports to distribute concurrent chunk downloads evenly across your accounts.
 
 ### Advanced JSON Configurations (Optional)
 
@@ -164,13 +183,14 @@ The project includes an extensive test suite verifying:
 
 ## Configuration
 
-`.env` file (auto-created):
+The `.env` file is auto-created. Alternatively, copy `.env.example` to `.env` to start with default values:
 
 ```env
 MAX_QUEUE=2
 DOWNLOAD_MAX_CONNECTION=4
 COMPRESSION_LEVEL=medium
 OVERRIDE_ENCODING=
+TDL_SESSIONS=default
 ```
 
 ## License

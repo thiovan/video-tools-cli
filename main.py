@@ -65,7 +65,8 @@ class VideoCLI:
         self.compression_level = get_env("COMPRESSION_LEVEL", "medium")
         # Shared instances
         self.ffmpeg = FFmpegHandler()
-        self.tdl = TDLHandler()
+        self.tdl_sessions = [s.strip() for s in get_env("TDL_SESSIONS", "default").split(",") if s.strip()]
+        self.tdl = TDLHandler(namespace=self.tdl_sessions[0] if self.tdl_sessions else "default")
         self.downloader = Downloader(ffmpeg_handler=self.ffmpeg, max_workers=self.download_max_connection)
 
     def run(self):
@@ -673,36 +674,46 @@ class VideoCLI:
                     if input_url not in tdl_urls:
                         tdl_urls.append(input_url)
             
+            active_handlers = []
             if tdl_urls:
-                log.info(f"Pre-resolving {len(tdl_urls)} Telegram link(s)...")
+                log.info(f"Pre-resolving {len(tdl_urls)} Telegram link(s) using {len(self.tdl_sessions) or 1} sessions...")
                 try:
-                    self.tdl.start_serve_batch(tdl_urls)
-                    direct_links = self.tdl.get_download_links()
+                    sessions = self.tdl_sessions or ["default"]
+                    # Round-robin distribution to prevent sequential items overloading one session
+                    chunks = [[] for _ in sessions]
+                    for i, url in enumerate(tdl_urls):
+                        chunks[i % len(sessions)].append(url)
                     
-                    if not direct_links or len(direct_links) < len(tdl_urls):
-                        log.error("Failed to resolve all Telegram links from batch.")
-                        # Fallback or strict abort? We'll let `final_url` fail downstream if missing, 
-                        # but attempt to map whatever we got.
-                        
-                    # Map resolved localhost links back to data items.
-                    # TDL hosts them sequentially corresponding to the input URLs order.
-                    # Creating a mapping from original telegram URL to resolved direct URL.
-                    # Warning: TDL sorts served files by id, we map by searching original ids in direct urls if possible.
-                    # Safe mapping: Direct links contain the telegram message ID (e.g. 2006639235/38698).
+                    for idx, chunk in enumerate(chunks):
+                        if not chunk: continue
+                        ns = sessions[idx % len(sessions)]
+                        handler = TDLHandler(namespace=ns)
+                        active_handlers.append((handler, chunk))
+                        handler.start_serve_batch(chunk)
+                    
                     url_map = {}
-                    for d_link in direct_links:
-                        # Extract message ID from localhost link, e.g. http://localhost:8080/2006639235/38698
-                        # We compare it against the original t.me/channel/38698
-                        for t_url in tdl_urls:
-                            msg_id = t_url.split('/')[-1].split('?')[0] # get 38698
-                            if msg_id in d_link:
-                                url_map[t_url] = d_link
-                                break
+                    for handler, chunk in active_handlers:
+                        direct_links = handler.get_download_links()
+                        
+                        if not direct_links or len(direct_links) < len(chunk):
+                            log.error(f"Failed to resolve all Telegram links from batch in session {handler.namespace}.")
+                            
+                        for d_link in direct_links:
+                            for t_url in chunk:
+                                msg_id = t_url.split('/')[-1].split('?')[0] # get 38698
+                                if msg_id in d_link:
+                                    url_map[t_url] = {"url": d_link, "namespace": handler.namespace}
+                                    break
                                 
                     for item in data:
                         input_url = item.get("input", "").strip()
                         if TDLHandler.is_telegram_link(input_url):
-                            item["resolved_url"] = url_map.get(input_url, input_url) # fallback to original if map fails
+                            mapped = url_map.get(input_url)
+                            if mapped:
+                                item["resolved_url"] = mapped["url"]
+                                item["tdl_namespace"] = mapped["namespace"]
+                            else:
+                                item["resolved_url"] = input_url
                 except Exception as e:
                     log.error("Error during TDL batch resolution.", details=str(e))
                 
@@ -717,8 +728,8 @@ class VideoCLI:
                         except Exception as exc:
                             log.error("Item processing generated an exception", details=str(exc))
             finally:
-                if tdl_urls:
-                    self.tdl.stop_serve()
+                for handler, _ in active_handlers:
+                    handler.stop_serve()
                         
         except json.JSONDecodeError as e:
             log.error(f"Invalid JSON format", details=str(e))
@@ -733,10 +744,12 @@ class VideoCLI:
         headers = item.get("headers", None)
         output_base = item.get("output")
         segments = item.get("segments", [])
+        ns = item.get("tdl_namespace")
+        ns_str = f" [{ns}]" if ns else ""
         
         input_url = normalize_path(input_url)
             
-        log.section(f"Processing {idx+1}/{total_items} queue: {output_base}")
+        log.section(f"Processing {idx+1}/{total_items} queue: {output_base}{ns_str}")
         
         final_url = item.get("resolved_url", input_url)
         
