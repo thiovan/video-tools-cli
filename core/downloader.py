@@ -62,7 +62,7 @@ class Downloader:
         
         # Permit custom extensions for web playlists (HLS/.m3u8)
         if ".m3u8" in url.lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
             
         if referer:
             cmd.extend(["-referer", referer])
@@ -106,7 +106,7 @@ class Downloader:
         ]
         
         if ".m3u8" in url.lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
             
         if referer:
             cmd.extend(["-referer", referer])

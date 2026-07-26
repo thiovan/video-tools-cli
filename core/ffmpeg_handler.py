@@ -155,7 +155,7 @@ class FFmpegHandler:
             "-show_streams"
         ]
         if ".m3u8" in str(path).lower():
-            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
+            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
         cmd.append(safe_path)
         try:
             result = subprocess.run(
@@ -198,7 +198,7 @@ class FFmpegHandler:
             "-y"
         ]
         if ".m3u8" in str(input_path).lower():
-            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
+            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
             
         cmd.extend([
             "-i", safe_input,
@@ -225,7 +225,7 @@ class FFmpegHandler:
             "-y"
         ]
         if ".m3u8" in str(url).lower():
-            cmd.extend(["-allowed_extensions", "ALL"])
+            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
             
         if referer:
             cmd.extend(["-referer", referer])
