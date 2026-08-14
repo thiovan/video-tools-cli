@@ -79,9 +79,8 @@ def load_config():
 def get_binary_path(binary_name: str) -> str:
     """
     Get the absolute path to a binary.
-    Prioritizes:
-    1. bin/ folder next to the application.
-    2. System PATH.
+    Strictly forces binaries from the local bin/ folder.
+    System PATH fallback is disabled.
     """
     ensure_bin_dir()
     
@@ -92,19 +91,22 @@ def get_binary_path(binary_name: str) -> str:
 
     local_bin = BIN_DIR / binary_name_with_ext
     if local_bin.exists():
-        return str(local_bin)
+        return str(local_bin.resolve())
     
-    # Try to auto-download missing binaries
+    # Try to auto-download missing binaries to bin/ folder
     if binary_name in ["ffmpeg", "ffprobe", "tdl"]:
         try:
             from .binary_downloader import download_binary
             if download_binary(binary_name, BIN_DIR):
                 if local_bin.exists():
-                    return str(local_bin)
+                    return str(local_bin.resolve())
         except Exception as e:
             print(f"Warning: Could not auto-download {binary_name}: {e}")
     
-    return binary_name_with_ext if sys.platform == "win32" else binary_name
+    raise FileNotFoundError(
+        f"Binary '{binary_name}' not found in local bin folder ({BIN_DIR}). "
+        "System PATH fallback is disabled."
+    )
 
 
 def get_temp_dir() -> Path:

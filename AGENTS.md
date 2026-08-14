@@ -80,3 +80,14 @@ To avoid Telegram download speed limits during batch processing, the CLI now sup
 - **The Flow:** Instead of processing all Telegram links through a single TDL server, `main.py::_process_json_input` reads `TDL_SESSIONS` from `.env`. It instantiates multiple `TDLHandler` processes dynamically on free open ports via `socket`. 
 - **Rule Update (Round-Robin):** Never use sequential chunking (e.g. `chunks[0:4]`) to distribute URLs among sessions. Because `ThreadPoolExecutor` processes the queue sequentially, chunking causes sequential workers to bombard a single session, triggering Telegram DC rate limits. Always use **Round-Robin** (`url[i % len(sessions)]`) to distribute load evenly across workers.
 - **Rule Update (Connection Drops):** FFmpeg HTTP streams from local TDL proxies drop frequently. Always include `-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5` flags when pulling chunks from TDL to survive connection resets.
+
+## 10. HLS Disguised Segment Extension Fix (Added 2026-08-14)
+
+Fixed HLS chunk downloading failure for disguised segment extensions (such as `.jpeg`, `.png` used by CDNs like `surrit.com`).
+
+- **Summary of Changes:** Updated HLS parameter injection in `core/downloader.py` and `core/ffmpeg_handler.py` to pass `["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"]` instead of hardcoded extension list missing `-allowed_segment_extensions`. Also fixed `-reconnect` flags in `_download_chunk()` to only apply to remote HTTP/HTTPS requests.
+- **Architecture Updates:** Ensured FFmpeg's HLS demuxer accepts all internal segment file extensions (`-allowed_segment_extensions ALL`) when processing `.m3u8` playlists.
+- **Strict Local Bin Resolution:** `core/config.py::get_binary_path` now strictly enforces using `bin/` executables (`ffmpeg`, `ffprobe`, `tdl`) and raises `FileNotFoundError` if missing, completely disabling fallback to system PATH binaries to prevent version mismatch bugs.
+- **Open Issues / Next Steps:** All HLS tests passing in `test_features.py`.
+
+

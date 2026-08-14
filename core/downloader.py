@@ -62,7 +62,7 @@ class Downloader:
         
         # Permit custom extensions for web playlists (HLS/.m3u8)
         if ".m3u8" in url.lower():
-            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
             
         if referer:
             cmd.extend(["-referer", referer])
@@ -99,14 +99,14 @@ class Downloader:
         cmd = [
             self.ffmpeg_handler.ffmpeg,
             "-hide_banner", "-v", "warning",
-            "-y",
-            "-reconnect", "1",
-            "-reconnect_streamed", "1",
-            "-reconnect_delay_max", "5"
+            "-y"
         ]
         
+        if url.lower().startswith(("http://", "https://")):
+            cmd.extend(["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5"])
+        
         if ".m3u8" in url.lower():
-            cmd.extend(["-allowed_extensions", "3gp,aac,avi,ac3,eac3,flac,mkv,m3u8,m4a,m4s,m4v,mpg,mov,mp2,mp3,mp4,mpeg,mpegts,ogg,ogv,oga,ts,vob,wav,jpeg,jpg,png,bmp,webp,gif"])
+            cmd.extend(["-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0"])
             
         if referer:
             cmd.extend(["-referer", referer])
