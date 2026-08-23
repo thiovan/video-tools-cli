@@ -17,6 +17,8 @@ PROJECT_DIR = Path(__file__).parent
 DIST_DIR = PROJECT_DIR / "dist"
 BUILD_DIR = PROJECT_DIR / "build"
 BIN_DIR = PROJECT_DIR / "bin"
+ASSETS_DIR = PROJECT_DIR / "assets"
+
 # Application info
 APP_NAME = "video-tools"
 MAIN_SCRIPT = "main.py"
