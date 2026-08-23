@@ -3,7 +3,7 @@ import time
 import requests
 import logging
 from bs4 import BeautifulSoup
-from .config import get_binary_path
+from .config import get_binary_path, get_tdl_timeout
 from utils.helpers import get_free_port
 
 class TDLHandler:
@@ -32,11 +32,13 @@ class TDLHandler:
         """Check if URL is a Telegram link."""
         return "t.me/" in url
 
-    def start_serve(self, url, port=None):
+    def start_serve(self, url, port=None, timeout=None):
         """
         Start 'tdl dl --serve' in background with optimized polling.
         Returns the process object.
         """
+        if timeout is None:
+            timeout = get_tdl_timeout()
         if port:
             self.port = port
             
@@ -66,16 +68,18 @@ class TDLHandler:
         )
         
         # Optimized polling instead of fixed sleep
-        if not self._wait_for_server(timeout=10):
+        if not self._wait_for_server(timeout=timeout):
             logging.warning("TDL server may not be fully ready, proceeding anyway...")
         
         return self.process
         
-    def start_serve_batch(self, urls, port=None):
+    def start_serve_batch(self, urls, port=None, timeout=None):
         """
         Start 'tdl dl --serve' for MULTIPLE urls. 
         Returns the process object.
         """
+        if timeout is None:
+            timeout = get_tdl_timeout()
         if port:
             self.port = port
             
@@ -97,13 +101,15 @@ class TDLHandler:
             text=True
         )
         
-        if not self._wait_for_server(timeout=10):
+        if not self._wait_for_server(timeout=timeout):
             logging.warning("TDL batch server may not be fully ready, proceeding anyway...")
         
         return self.process
 
-    def _wait_for_server(self, timeout=10, poll_interval=0.3):
+    def _wait_for_server(self, timeout=None, poll_interval=0.3):
         """Poll until server is ready or timeout."""
+        if timeout is None:
+            timeout = get_tdl_timeout()
         start_time = time.time()
         while time.time() - start_time < timeout:
             if self.process.poll() is not None:

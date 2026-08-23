@@ -11,7 +11,7 @@
         Video Processing Made Easy
 ```
 
-![Version](https://img.shields.io/badge/version-1.7.0-blue)
+![Version](https://img.shields.io/badge/version-1.7.2-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
@@ -91,6 +91,7 @@ python main.py
 | `MAX_QUEUE`               | Parallel workers for processing (default: 2)        |
 | `DOWNLOAD_MAX_CONNECTION` | Parallel download chunks (default: 4)               |
 | `TDL_SESSIONS`            | Comma-separated TDL sessions for Telegram batch load balancing (e.g., `default,second_account`) |
+| `TDL_TIMEOUT`             | Timeout in seconds for TDL server startup and link pre-resolution (default: `120`) |
 
 ### Multi-Session TDL Batching
 
@@ -191,6 +192,7 @@ DOWNLOAD_MAX_CONNECTION=4
 COMPRESSION_LEVEL=medium
 OVERRIDE_ENCODING=
 TDL_SESSIONS=default
+TDL_TIMEOUT=120
 ```
 
 ## License

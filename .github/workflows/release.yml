@@ -52,12 +52,6 @@ jobs:
           Remove-Item "tdl.zip"
         shell: pwsh
 
-      - name: Build executable
-        run: python build.py
-
-      - name: Create release package
-        run: python build.py --package
-
       - name: Get version
         id: version
         run: |
@@ -69,6 +63,16 @@ jobs:
             echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           }
         shell: pwsh
+
+      - name: Build executable
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: python build.py
+
+      - name: Create release package
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: python build.py --package
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

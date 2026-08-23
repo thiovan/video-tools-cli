@@ -59,6 +59,7 @@ def ensure_config():
             "OVERRIDE_ENCODING=\n"
             "COMPRESSION_LEVEL=medium\n"
             "TDL_SESSIONS=default\n"
+            "TDL_TIMEOUT=120\n"
         )
         try:
             with open(ENV_PATH, "w", encoding="utf-8") as f:
@@ -119,6 +120,14 @@ def get_temp_dir() -> Path:
 def get_env(key: str, default=None):
     """Get environment variable with optional default."""
     return os.getenv(key, default)
+
+
+def get_tdl_timeout() -> int:
+    """Get TDL server startup timeout in seconds from env."""
+    try:
+        return int(get_env("TDL_TIMEOUT", "120"))
+    except (ValueError, TypeError):
+        return 120
 
 
 def get_compression_settings(level: str = None) -> dict:

@@ -17,12 +17,22 @@ PROJECT_DIR = Path(__file__).parent
 DIST_DIR = PROJECT_DIR / "dist"
 BUILD_DIR = PROJECT_DIR / "build"
 BIN_DIR = PROJECT_DIR / "bin"
-ASSETS_DIR = PROJECT_DIR / "assets"
-
 # Application info
 APP_NAME = "video-tools"
 MAIN_SCRIPT = "main.py"
-VERSION = os.getenv("VERSION", "1.7.2")
+
+def get_version():
+    if os.getenv("VERSION"):
+        return os.getenv("VERSION")
+    main_py = PROJECT_DIR / "main.py"
+    if main_py.exists():
+        with open(main_py, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VERSION ="):
+                    return line.split("=")[1].strip().strip('"\'')
+    return "1.7.2"
+
+VERSION = get_version()
 
 
 def clean_build():
