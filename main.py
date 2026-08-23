@@ -29,7 +29,7 @@ from termcolor import colored
 colorama.init()
 
 # Application version
-VERSION = "1.7.2"
+VERSION = "1.7.3"
 
 
 def set_console_title(title: str):
